@@ -1,14 +1,14 @@
 version: '3'
 
 volumes:
-  postgresdatabase10:
+  pgdata:
       driver: local  
 
 services:
   postgres:
-      image: postgres:10
+      image: postgres:12
       volumes:
-        - postgresdatabase10:/var/lib/postgresql/data
+        - pgdata:/var/lib/postgresql/data
       environment:
         POSTGRES_DB: keycloak
         POSTGRES_USER: keycloak
@@ -17,17 +17,21 @@ services:
         - 5432:5432
 
   keycloak:
-      image: jboss/keycloak
+      build:
+        context: keycloak/
       environment:
-        DB_VENDOR: POSTGRES
-        DB_ADDR: postgres
-        DB_DATABASE: keycloak
-        DB_USER: keycloak
-        DB_SCHEMA: public
-        DB_PASSWORD: password
-        KEYCLOAK_USER: admin
-        KEYCLOAK_PASSWORD: admin
-        KCBASE: /opt/jboss/keycloak/
+        DB_VENDOR: postgres # Leave as-is if using PostgreSQL
+        DB_ADDR: postgres # You can add an external SaaS DB address here
+        DB_DATABASE: keycloak # Point to the production database here
+        DB_USER: keycloak # Point to the production database here
+        DB_SCHEMA: public # Usually left as-is
+        DB_PASSWORD: password # Point to the production database here
+        KEYCLOAK_USER: admin # You can usually leave this as-is
+        KEYCLOAK_PASSWORD: admin # Change after 1st login in production!!
+        KCBASE: /opt/jboss/keycloak/ # Leave as-is
+        HS_REDIRECT_URI: http://localhost:8000/* # Don't bother
+        HS_CLIENT_ALIAS: hs_playground
+        HYPERSIGN_WORKDIR: /hypersign # leave as-is
       ports:
         - 8080:8080
       depends_on:
