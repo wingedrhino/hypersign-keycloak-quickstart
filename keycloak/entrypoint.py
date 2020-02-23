@@ -51,6 +51,7 @@ envars = [
   'HS_PLUGIN_JAR',
   'AUTH_FLOW_NAME',
   'HYPERSIGN_EXECUTION_NAME',
+  'HS_AUTH_SERVER_ENDPOINT',
 ]
 
 print('Performing Mandatory Envrionment Variable Check...')
@@ -73,6 +74,7 @@ AUTHENTICATOR_TGZ_FILE = os.getenv('AUTHENTICATOR_TGZ_FILE')
 AUTHENTICATOR_CHECKSUM = os.getenv('AUTHENTICATOR_CHECKSUM')
 KEYCLOAK_USER = os.getenv('KEYCLOAK_USER')
 KEYCLOAK_PASSWORD = os.getenv('KEYCLOAK_PASSWORD')
+HS_AUTH_SERVER_ENDPOINT = os.getenv('HS_AUTH_SERVER_ENDPOINT')
 
 # KeyCloakHandle is a handle to the main keycloak instance
 class KeyCloakHandle:
@@ -156,6 +158,12 @@ def dld_with_checks(url: str, filepath, expected_checksum: str):
     print(f"Either update the checksum in this script or delete '{filepath}' and try again!")
     sys.exit(1)
 
+# Writes some text to a file
+def write_to_file(filepath: str, text: str):
+  file_handle = open(filepath, 'w')
+  file_handle.write(text)
+  file_handle.close()
+
 # We check if the step represented by this string is a file in workdir
 def is_step_complete(step: str):
   step_file = workdir.joinpath(step)
@@ -215,20 +223,25 @@ print(f'Switched to HyperSign working directory {workdir}')
 
 # Download HyperSign Keycloak Authenticator & Extract it
 def step_download_extract():
+
   downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
   dld_with_checks(AUTHENTICATOR_BUILD_URL, downloaded_tarball, AUTHENTICATOR_CHECKSUM)
+
   extract_dir = workdir.joinpath('hs-authenticator')
   if extract_dir.exists():
     print(f"Deleting directory '{extract_dir}' because it already exists")
     shutil.rmtree(extract_dir)
+
   print('Uncompressing Plugin...')
   tarfile.open(downloaded_tarball).extractall(workdir)
   extract_dir = workdir.joinpath('hs-authenticator')
   os.chdir(extract_dir)
   tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
+
   # Copy plugin JAR
   print(f'Copying {HS_PLUGIN_JAR} file into {str(KCBASE)}...')
   shutil.copy2(extract_dir.joinpath(HS_PLUGIN_JAR), KCBASE)
+
   # Copy theme
   theme_from_dir = extract_dir.joinpath('hs-themes')
   theme_to_dir = KCBASE.joinpath('themes').joinpath('base').joinpath('login')
@@ -236,9 +249,13 @@ def step_download_extract():
   shutil.copy2(theme_from_dir.joinpath('hypersign-config.ftl'), theme_to_dir)
   shutil.copy2(theme_from_dir.joinpath('hypersign.ftl'), theme_to_dir)
   shutil.copy2(theme_from_dir.joinpath('hypersign-new.ftl'), theme_to_dir)
+
   # Deploy HyperSign config file
   print('Deploying configuration file...')
-  shutil.copy2('hypersign.properties', KCBASE.joinpath('standalone').joinpath('configuration'))
+  cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').join('hypersign.properties')
+  cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
+  write_to_file(cfg_file, cfg_text)
+
 run_once(step_download_extract)
 
 # Decide if we are on windows or Linux and then set the CLIs
@@ -254,9 +271,7 @@ os.chdir(workdir)
 # Deploy Plugin
 def step_plugin_deploy():
   plugin_deploy_command = f'module add --name=hs-plugin-keycloak-ejb --resources={KCBASE.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
-  plugin_deploy_cli = open('plugin_deploy.cli', 'w')
-  plugin_deploy_cli.write(plugin_deploy_command)
-  plugin_deploy_cli.close()
+  write_to_file('plugin_deploy.cli', plugin_deploy_command)
   subprocess.run([jboss_cli, '--file=plugin_deploy.cli']).check_returncode()
 run_once(step_plugin_deploy)
 

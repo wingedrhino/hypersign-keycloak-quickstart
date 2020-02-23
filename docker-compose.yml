@@ -12,7 +12,7 @@ services:
       environment:
         POSTGRES_DB: keycloak
         POSTGRES_USER: keycloak
-        POSTGRES_PASSWORD: password
+        POSTGRES_PASSWORD: password # don't expose this database outside!
       ports:
         - 5432:5432
 
@@ -21,19 +21,21 @@ services:
         context: keycloak/
       environment:
         DB_VENDOR: postgres # Leave as-is if using PostgreSQL
-        DB_ADDR: postgres # You can add an external SaaS DB address here
-        DB_DATABASE: keycloak # Point to the production database here
-        DB_USER: keycloak # Point to the production database here
-        DB_SCHEMA: public # Usually left as-is
-        DB_PASSWORD: password # Point to the production database here
+        DB_ADDR: postgres # Address of the PostgreSQL instance.
+        DB_DATABASE: keycloak # PostgreSQL database name
+        DB_USER: keycloak # PostgreSQL username
+        DB_SCHEMA: public # PostgreSQL schema; Leave as-is.
+        DB_PASSWORD: password # PostgreSQL password; don't expose this database outside!
         KEYCLOAK_USER: admin # You can usually leave this as-is
         KEYCLOAK_PASSWORD: admin # Change after 1st login in production!!
         HS_REDIRECT_URI: http://localhost:8000/* # Change to whatever you need in prod!
         HS_CLIENT_ALIAS: hs_playground # Change to app's name!
+        HS_AUTH_SERVER_ENDPOINT: http://hs-auth-server:3000 # point to production hs-auth-server
       ports:
         - 8080:8080
       depends_on:
         - postgres
+        - hs-auth-server
 
   hs-auth-server:
       image: hypermine/hs-auth-server
