@@ -31,7 +31,6 @@ services:
         KCBASE: /opt/jboss/keycloak/ # Leave as-is
         HS_REDIRECT_URI: http://localhost:8000/* # Don't bother
         HS_CLIENT_ALIAS: hs_playground
-        HYPERSIGN_WORKDIR: /hypersign # leave as-is
       ports:
         - 8080:8080
       depends_on:
