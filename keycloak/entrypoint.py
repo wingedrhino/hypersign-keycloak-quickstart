@@ -239,8 +239,13 @@ def step_download_extract():
   tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
 
   # Copy plugin JAR
-  print(f'Copying {HS_PLUGIN_JAR} file into {str(KCBASE)}...')
-  shutil.copy2(extract_dir.joinpath(HS_PLUGIN_JAR), KCBASE)
+  plugin_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
+  print(f'Copying {plugin_jar_path} file into {KCBASE}...')
+  shutil.copy2(plugin_jar_path, KCBASE)
+  # Find out how deploying to the below directory is different!
+  # kc_deployments = KCBASE.joinpath('standalone').joinpath('deployments')
+  # print(f'Copying {plugin_jar_path} file into {kc_deployments}')
+  # shutil.copy2(plugin_jar_path, kc_deployments)
 
   # Copy theme
   theme_from_dir = extract_dir.joinpath('hs-themes')
