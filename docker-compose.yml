@@ -28,7 +28,7 @@ services:
         DB_PASSWORD: password # Point to the production database here
         KEYCLOAK_USER: admin # You can usually leave this as-is
         KEYCLOAK_PASSWORD: admin # Change after 1st login in production!!
-        KCBASE: /opt/jboss/keycloak/ # Leave as-is
+        KCBASE: /opt/jboss/keycloak # Leave as-is
         HS_REDIRECT_URI: http://localhost:8000/* # Don't bother
         HS_CLIENT_ALIAS: hs_playground
       ports:
