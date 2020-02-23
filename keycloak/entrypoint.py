@@ -340,9 +340,24 @@ def step_create_execution():
     '--format', 'json',
     '-r', 'master',
   ])
+  # The output looks something like:
+  # You can examine that yourself by replacing ${AUTH_FLOW_NAME} with 'browser'
+  # [
+  #   {
+  #     "displayName": "Cookie"
+  #   },
+  #   {
+  #     "displayName": "Condition - user configured"
+  #   },
+  #   {
+  #     "displayName": "OTP Form"
+  #   }
+  # ]
   execution_presence = json.loads(execution_presence_json.decode(SHELL_ENCODING))
   for ep in execution_presence:
-    print(f'Found flow {ep}')
+    print(f'Found flow {ep.displayName}')
+    if ep.displayName == HYPERSIGN_EXECUTION_NAME:
+      is_execution_present = True
     # TODO fill me up and figure out the right check
   if is_execution_present:
     print(f'Execution {HYPERSIGN_EXECUTION_NAME} is already configured with "{AUTH_FLOW_NAME}" Auth Flow.')
@@ -359,7 +374,7 @@ def step_create_execution():
     ])
     print(f'Creation of execution {HYPERSIGN_EXECUTION_NAME} successful!')
 
-run_once(step_create_execution)
+run(step_create_execution)
 
 subprocess.run(['sleep', 'infinity'])
 
