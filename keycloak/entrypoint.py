@@ -287,6 +287,8 @@ print('...Successfully logged into KeyCloak!')
 def ensure_hs_flow():
   print('Checking if HyperSign flow is present...')
   is_hs_flow_present = False
+  # This command is the equivalent of
+  # ${KCBASE}/bin/kcadm.sh get authentication/flows --fields alias --format json --noquotes -r master
   auth_flows_json = subprocess.check_output([
     kcadm_cli,
     'get', 'authentication/flows',
