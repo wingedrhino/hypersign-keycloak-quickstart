@@ -25,21 +25,6 @@ from pathlib import Path
 # Constants also exported as environment variables so that all subprocesses
 # have access to them.
 
-# Set Environment Variables
-AUTHENTICATOR_BUILD_URL = 'https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz'
-os.environ['AUTHENTICATOR_BUILD_URL'] = AUTHENTICATOR_BUILD_URL
-AUTHENTICATOR_TGZ_FILE = 'hs-authenticator.tar.gz'
-os.environ['AUTHENTICATOR_TGZ_FILE'] = AUTHENTICATOR_TGZ_FILE
-AUTHENTICATOR_CHECKSUM = '6ce34575a1e0664e56ae6a595d49596f65cf9bee3be626906da0d421b4b459789aabe1d167365174d4f57073e99f52e4e98a9d46712db50a8bf48e436e759424'
-os.environ['AUTHENTICATOR_CHECKSUM'] = AUTHENTICATOR_CHECKSUM
-HS_THEME_FILE = 'hs-theme.tar.gz'
-os.environ['HS_THEME_FILE'] = HS_THEME_FILE
-HS_PLUGIN_JAR = 'hs-plugin-keycloak-ejb-0.2-SNAPSHOT.jar'
-os.environ['HS_PLUGIN_JAR'] = HS_PLUGIN_JAR
-AUTH_FLOW_NAME = 'hs-auth-flow'
-os.environ['AUTH_FLOW_NAME'] = AUTH_FLOW_NAME
-HYPERSIGN_EXECUTION_NAME='HyperSign QRCode'
-
 # Set Environment Variables that have defaults
 SHELL_ENCODING = os.getenv('SHELL_ENCODING')
 if not SHELL_ENCODING:
@@ -59,6 +44,13 @@ envars = [
   'HS_REDIRECT_URI',
   'HS_CLIENT_ALIAS',
   'HYPERSIGN_WORKDIR',
+  'AUTHENTICATOR_BUILD_URL',
+  'AUTHENTICATOR_TGZ_FILE',
+  'AUTHENTICATOR_CHECKSUM',
+  'HS_THEME_FILE',
+  'HS_PLUGIN_JAR',
+  'AUTH_FLOW_NAME',
+  'HYPERSIGN_EXECUTION_NAME',
 ]
 
 print('Performing Mandatory Envrionment Variable Check...')
@@ -70,7 +62,17 @@ for envar in envars:
     sys.exit(1)
 print('...Mandatory Environment Vairable Check Completed!')
 
+# Set variables to environment variables
 KCBASE=Path(os.getenv('KCBASE'))
+HS_PLUGIN_JAR = os.getenv('HS_PLUGIN_JAR')
+AUTH_FLOW_NAME = os.getenv('AUTH_FLOW_NAME')
+HYPERSIGN_EXECUTION_NAME = os.getenv('HYPERSIGN_EXECUTION_NAME')
+HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR')
+AUTHENTICATOR_BUILD_URL = os.getenv('AUTHENTICATOR_BUILD_URL')
+AUTHENTICATOR_TGZ_FILE = os.getenv('AUTHENTICATOR_TGZ_FILE')
+AUTHENTICATOR_CHECKSUM = os.getenv('AUTHENTICATOR_CHECKSUM')
+KEYCLOAK_USER = os.getenv('KEYCLOAK_USER')
+KEYCLOAK_PASSWORD = os.getenv('KEYCLOAK_PASSWORD')
 
 # KeyCloakHandle is a handle to the main keycloak instance
 class KeyCloakHandle:
@@ -195,7 +197,7 @@ def run_once_restart(step):
 # Main execution start!
 
 # Enter WORKDIR
-workdir = os.getenv('HYPERSIGN_WORKDIR')
+workdir = HYPERSIGN_WORKDIR
 workdir = Path(workdir) # Converts string to Path
 if not workdir.exists():
   print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
@@ -261,14 +263,15 @@ def step_add_hs_module_to_kc_config():
   ])
 run_once_restart(step_add_hs_module_to_kc_config)
 
-# kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user $KEYCLOAK_USER --password $KEYCLOAK_PASSWORD
 print('Logging into KeyCloak...')
+# Same command as:
+# ${KCBASE}/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user ${KEYCLOAK_USER} --password ${KEYCLOAK_PASSWORD}
 subprocess.run([
   kcadm_cli, 'config', 'credentials',
   '--server', 'http://localhost:8080/auth',
   '--realm', 'master',
-  '--user', os.getenv('KEYCLOAK_USER'),
-  '--password', os.getenv('KEYCLOAK_PASSWORD'),
+  '--user', KEYCLOAK_USER,
+  '--password', KEYCLOAK_PASSWORD,
 ]).check_returncode()
 print('...Successfully logged into KeyCloak!')
 
@@ -295,7 +298,7 @@ def ensure_hs_flow():
     print(f'Skipping flow creation since flow "{AUTH_FLOW_NAME}" was found')
   else:
     print(f'Creating flow "{AUTH_FLOW_NAME}"')
-    # kcadm.sh create authentication/flows -s alias=$AUTH_FLOW_NAME -s providerId=basic-flow -s  description=$AUTH_FLOW_NAME -s  topLevel=true  -s builtIn=false -r master
+    # ${KCBASE}/bin/kcadm.sh create authentication/flows -s alias=${AUTH_FLOW_NAME} -s providerId=basic-flow -s  description=${AUTH_FLOW_NAME} -s  topLevel=true  -s builtIn=false -r master
     create_flow_output = subprocess.check_output([
       kcadm_cli,
       'create', 'authentication/flows',
@@ -319,7 +322,7 @@ def step_create_execution():
   print('Checking if HyperSign Execution is present...')
   is_execution_present = False
   # Same command as:
-  # kcadm.sh get authentication/flows/$AUTH_FLOW_NAME/executions --fields displayName --format json -r master
+  # ${KCBASE}/bin/kcadm.sh get authentication/flows/${AUTH_FLOW_NAME}/executions --fields displayName --format json -r master
   execution_presence_json = subprocess.check_output([
     kcadm_cli,
     'get', f'authentication/flows/{AUTH_FLOW_NAME}/executions',
@@ -335,6 +338,8 @@ def step_create_execution():
     print(f'Execution {HYPERSIGN_EXECUTION_NAME} is already configured with "{AUTH_FLOW_NAME}" Auth Flow.')
   else :
     print(f'Creating execution: {HYPERSIGN_EXECUTION_NAME}')
+    # This is the same as running
+    # ${KCBASE}/bin/kcadm.sh create authentication/flows/${AUTH_FLOW_NAME}/executions/execution -r master -s provider=hyerpsign-qrocde-authenticator -s requirement=REQUIRED
     create_execution_output = subprocess.check_output([
       kcadm_cli,
       'create', f'authentication/flows/{AUTH_FLOW_NAME}/executions/execution',
