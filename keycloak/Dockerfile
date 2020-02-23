@@ -4,6 +4,15 @@ USER root
 
 WORKDIR /hypersign
 
+# Install Python - which we need
+# Install Vim (and my .vimrc) to make life easy
+# Install the ps command via procps to make debugging better
+RUN microdnf install python3 vim procps
+ADD https://raw.githubusercontent.com/wingedrhino/DistroSetup/trunk/dotfiles/vimrc /root/.vimrc
+
+# entrypoint.py verifies this download
+ADD https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz .
+
 # Build-time environment variables!
 ENV HYPERSIGN_WORKDIR=/hypersign
 ENV AUTHENTICATOR_BUILD_URL='https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz'
@@ -15,16 +24,6 @@ ENV AUTH_FLOW_NAME='hs-auth-flow'
 ENV HYPERSIGN_EXECUTION_NAME='HyperSign QRCode'
 ENV KCBASE='/opt/jboss/keycloak'
 ENV PATH="${KCBASE}/bin:${PATH}"
-
-
-# Install Python - which we need
-# Install Vim (and my .vimrc) to make life easy
-# Install the ps command via procps to make debugging better
-RUN microdnf install python3 vim procps
-ADD https://raw.githubusercontent.com/wingedrhino/DistroSetup/trunk/dotfiles/vimrc /root/.vimrc
-
-# entrypoint.py verifies this download
-ADD https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz .
 
 COPY entrypoint.py .
 
