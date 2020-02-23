@@ -8,6 +8,7 @@ ADD https://raw.githubusercontent.com/wingedrhino/DistroSetup/trunk/dotfiles/vim
 WORKDIR /hypersign
 ENV HYPERSIGN_WORKDIR /hypersign
 
-COPY hs-setup.py /
-WORKDIR /
+COPY entrypoint.py /
+
+# ENTRYPOINT ["/entrypoint.py"]
 ENTRYPOINT ["sleep", "infinity"]
