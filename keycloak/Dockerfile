@@ -10,9 +10,6 @@ WORKDIR /hypersign
 RUN microdnf install python3 vim procps
 ADD https://raw.githubusercontent.com/wingedrhino/DistroSetup/trunk/dotfiles/vimrc /root/.vimrc
 
-# entrypoint.py verifies this download
-ADD https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz .
-
 # Build-time environment variables!
 ENV HYPERSIGN_WORKDIR=/hypersign
 ENV AUTHENTICATOR_BUILD_URL='https://github.com/hypermine-bc/hs-authenticator/releases/download/v1.0.1/hs-authenticator.tar.gz'
