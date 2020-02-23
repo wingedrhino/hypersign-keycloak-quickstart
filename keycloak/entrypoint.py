@@ -13,7 +13,6 @@ import subprocess
 import os
 import glob
 import urllib.request
-import pathlib
 import sys
 import shutil
 import tarfile
@@ -21,6 +20,7 @@ import time
 import json
 import hashlib
 from typing import List
+from pathlib import Path
 
 # Constants also exported as environment variables so that all subprocesses
 # have access to them.
@@ -70,7 +70,7 @@ for envar in envars:
     sys.exit(1)
 print('...Mandatory Environment Vairable Check Completed!')
 
-KCBASE=pathlib.Path(os.getenv('KCBASE'))
+KCBASE=Path(os.getenv('KCBASE'))
 
 # KeyCloakHandle is a handle to the main keycloak instance
 class KeyCloakHandle:
@@ -85,7 +85,7 @@ class KeyCloakHandle:
       ['/opt/jboss/tools/docker-entrypoint.sh', '-b', '0.0.0.0'],
       preexec_fn=lambda: os.setuid(1000) # We run KeyCloak as non-root user
     )
-    time.sleep(40) # TODO figure out a better way to wait for startup?
+    time.sleep(60) # TODO figure out a better way to wait for startup?
     self.running = True
     print('...Started KeyCloak!')
 
@@ -108,7 +108,7 @@ class KeyCloakHandle:
 
 KEYCLOAK_HANDLE = KeyCloakHandle()
 
-def sha512sum(filepath: Path):
+def sha512sum(filepath):
     hash  = hashlib.sha512()
     b  = bytearray(128*1024)
     mv = memoryview(b)
@@ -117,7 +117,7 @@ def sha512sum(filepath: Path):
             hash.update(mv[:n])
     return hash.hexdigest()
 
-def expect_sha512(filepath: Path, expected_value: str):
+def expect_sha512(filepath, expected_value: str):
   actual_value = sha512sum(filepath)
   if actual_value != expected_value:
     return False, actual_value
@@ -131,7 +131,7 @@ def expect_sha512(filepath: Path, expected_value: str):
 #  * File not yet Present: download & calculate checksum
 #    * Checksum matches: Continue successfully
 #    * Checksum mismatch: Error out. Need to delete file manually now
-def dld_with_checks(url: str, filepath: Path, expected_checksum: str):
+def dld_with_checks(url: str, filepath, expected_checksum: str):
 
   if filepath.exists():
     checksum_verified, actual_checksum = expect_sha512(filepath, expected_checksum)
@@ -196,7 +196,7 @@ def run_once_restart(step):
 
 # Enter WORKDIR
 workdir = os.getenv('HYPERSIGN_WORKDIR')
-workdir = pathlib.Path(workdir) # Converts string to Path
+workdir = Path(workdir) # Converts string to Path
 if not workdir.exists():
   print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
   sys.exit(1)
@@ -205,13 +205,14 @@ print(f'Switched to HyperSign working directory {workdir}')
 
 # Download HyperSign Keycloak Authenticator & Extract it
 def step_download_extract():
-  dld_with_checks(AUTHENTICATOR_BUILD_URL, AUTHENTICATOR_TGZ_FILE, AUTHENTICATOR_CHECKSUM)
+  downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
+  dld_with_checks(AUTHENTICATOR_BUILD_URL, downloaded_tarball, AUTHENTICATOR_CHECKSUM)
   extract_dir = workdir.joinpath('hs-authenticator')
   if extract_dir.exists():
     print(f"Deleting directory '{extract_dir}' because it already exists")
     shutil.rmtree(extract_dir)
   print('Uncompressing Plugin...')
-  tarfile.open(AUTHENTICATOR_TGZ_FILE).extractall(workdir)
+  tarfile.open(downloaded_tarball).extractall(workdir)
   extract_dir = workdir.joinpath('hs-authenticator')
   os.chdir(extract_dir)
   tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
