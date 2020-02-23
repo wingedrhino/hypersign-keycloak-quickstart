@@ -8,6 +8,8 @@ Kubernetes!
 To know more about **Hypersign**, please visit
 [this](https://github.com/hypermine-bc/hypersign/blob/master/docs/overview.md).
 
+***This is a WIP refactor of https://github.com/hypermine-bc/hypersign-quickstart***
+
 ## Installation
 
 ### Setup Docker
@@ -57,7 +59,6 @@ containers running in your machine (run `docker-compose ps`).
 - A keycloak server at port `8080`
 - A postgres database server at port `5432`
 - A hs-auth server at port `3000`
-
 
 **Management portal**
 
