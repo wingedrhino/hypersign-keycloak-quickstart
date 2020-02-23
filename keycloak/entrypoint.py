@@ -175,6 +175,14 @@ def set_step_complete(step: str):
   step_file = workdir.joinpath(step)
   step_file.touch()
 
+# Run runs a function and makes a note internally that it _was_ done.
+def run(step):
+  step_name = step.__name__
+  print(f'Executing step {step_name}')
+  step()
+  set_step_complete(step_name)
+  print(f'Step {step_name} finished successfully!')
+
 # Run function as a step that only runs once
 # Returns True if function was executed; false otherwise
 def run_once(step) -> bool:
@@ -314,7 +322,7 @@ def ensure_hs_flow():
     # We just want the last id
     flow_id = create_flow_output # TODO FIXME why does this output empty string?
     print(f'Created HyperSign Flow with Flow ID "{flow_id}"')
-run_once(ensure_hs_flow)
+run(ensure_hs_flow)
 
 # Create HyperSign Execution
 def step_create_execution():
