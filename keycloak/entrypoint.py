@@ -252,7 +252,7 @@ def step_download_extract():
 
   # Deploy HyperSign config file
   print('Deploying configuration file...')
-  cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').join('hypersign.properties')
+  cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
   cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
   write_to_file(cfg_file, cfg_text)
 

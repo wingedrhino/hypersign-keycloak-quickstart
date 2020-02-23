@@ -22,7 +22,7 @@ ENV HYPERSIGN_EXECUTION_NAME='HyperSign QRCode'
 ENV KCBASE='/opt/jboss/keycloak'
 ENV PATH="${KCBASE}/bin:${PATH}"
 
-COPY entrypoint.py .
+COPY . .
 
 # ENTRYPOINT ["/entrypoint.py"]
 ENTRYPOINT ["sleep", "infinity"]
