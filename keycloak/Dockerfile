@@ -7,8 +7,8 @@ WORKDIR /hypersign
 # Install Python for gruntwork and beautifulsoup4 for XML editing
 # Install the ps command via procps to check for accidentally zombied processes
 # Install Vim (and my .vimrc) to make life easy in the container
-RUN microdnf install python3 vim procps
-RUN pip3 install beautifulsoup4
+RUN microdnf install python3 vim procps python-lxml
+RUN pip3 install beautifulsoup4 lxml
 ADD https://raw.githubusercontent.com/wingedrhino/DistroSetup/trunk/dotfiles/vimrc /root/.vimrc
 
 

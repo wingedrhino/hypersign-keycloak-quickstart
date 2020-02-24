@@ -313,7 +313,7 @@ def step_download_extract_install():
   # Read XML file and parse in Soup
   with open(standalone_ha_path, 'r') as fp:
     standalone_ha_text = fp.read()
-  standalone_ha_soup = BeautifulSoup(standalone_ha_text, 'html.parser')
+  standalone_ha_soup = BeautifulSoup(standalone_ha_text, 'xml')
   
   # Find a subsystem element such that it's
   # xmlns attribute is urn:jboss:domain:keycloak-server:1.1
@@ -347,14 +347,8 @@ def step_download_extract_install():
 
 run(step_download_extract_install)
 
-# FIXME remove
-input("Starting KeyCloak. Press Enter to continue...")
-
 # Start KeyCloak and Login!
 KEYCLOAK_HANDLE.start()
-
-# FIXME remove
-input("Started KeyCloak. Press Enter to continue...")
 
 print('Logging into KeyCloak...')
 # Same command as:
@@ -407,7 +401,7 @@ def ensure_hs_flow():
     # You'd get an output like this:
     # Created new flow with id 'c07da8f0-a563-47dc-8755-8b1c128a4f9a'
     # We just want the last id
-    flow_id = create_flow_output # TODO FIXME why does this output empty string?
+    flow_id = create_flow_output # TODO why does this output empty string?
     print(f'Created HyperSign Flow with Flow ID "{flow_id}"')
 run(ensure_hs_flow)
 
