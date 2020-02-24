@@ -282,7 +282,7 @@ def step_download_extract_install():
   module_basedir = KCBASE.joinpath('modules').joinpath('hs-plugin-keycloak-ejb')
   if module_basedir.exists():
     print(f'Module already exists at {module_basedir}. It will be deleted & re-created.')
-    module_basedir.rmdir()
+    shutil.rmtree(module_basedir)
   # We are using a command file, however, because it's less unstable
   plugin_deploy_command = f'module add --name=hs-plugin-keycloak-ejb --resources={KCBASE.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
   write_to_file('plugin_deploy.cli', plugin_deploy_command)
