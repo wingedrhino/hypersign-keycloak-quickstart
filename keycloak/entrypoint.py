@@ -21,7 +21,7 @@ import json
 import hashlib
 from typing import List
 from pathlib import Path
-import xml.etree.ElementTree as ET
+from bs4 import BeautifulSoup
 
 # Constants also exported as environment variables so that all subprocesses
 # have access to them.
@@ -300,28 +300,49 @@ def step_download_extract_install():
   #
   # jboss-cli.sh --connect --command='/subsystem=keycloak-server/:write-attribute(name=providers,value=["classpath:${jboss.home.dir}/providers/*","module:hs-plugin-keycloak-ejb"])'
   #
-  # But since we're trying to avoid restarts, we directly edit that XML in Python
-  standalone_ha_path = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('standalone-ha.xml')
-  expected_entry = 'module:hs-plugin-keycloak-ejb'
-  print(f'Inspecting {standalone_ha_path} to see if {expected_entry} is registered')
-  standalone_ha_tree = ET.parse(standalone_ha_path)
-  providers_node = standalone_ha_tree.findall('.//{urn:jboss:domain:keycloak-server:1.1}subsystem/{urn:jboss:domain:keycloak-server:1.1}providers')
+  # But since we're trying to avoid restarts, we directly edit that XML via
+  # BeautifulSoup4 in Python!
+
+  standalone_ha_path = KCBASE.joinpath('standalone') \
+                             .joinpath('configuration') \
+                             .joinpath('standalone-ha.xml')
+  
+  hs_provider_key = 'module:hs-plugin-keycloak-ejb'
+  print(f'Inspecting {standalone_ha_path} to see if {hs_provider_key} is registered')
+
+  # Read XML file and parse in Soup
+  with open(standalone_ha_path, 'r') as fp:
+    standalone_ha_text = fp.read()
+  standalone_ha_soup = BeautifulSoup(standalone_ha_text, 'html.parser')
+  
+  # Find a subsystem element such that it's
+  # xmlns attribute is urn:jboss:domain:keycloak-server:1.1
+  # Then find the providers element inside that file.
+  providers_node = standalone_ha_soup.find(
+    'subsystem',
+    attrs={'xmlns':'urn:jboss:domain:keycloak-server:1.1'}
+  ).find('providers')
+
+  # Now search through text of each provider element
   is_registered = False
-  for child in providers_node:
-    provider_name = child.text.strip()
-    print(f'Found provider ${provider_name}')
-    if provider_name == expected_entry:
+  for provider_node in providers_node.findAll('provider'):
+    provider_key = provider_node.text.strip()
+    if provider_key == hs_provider_key:
       is_registered = True
-  if is_registered:
-    print(f'Provider {expected_entry} is already registered. Moving on!')
-  else:
-    print(f'Modifying {standalone_ha_path} to add Provider {expected_entry}')
-    new_provider_text = f'<provider xmlns="urn:jboss:domain:keycloak-server:1.1">{expected_entry}</provider>'
-    new_provider_xml = ET.fromstring(new_provider_text)
-    providers_node.append(new_provider_xml)
-    standalone_ha_tree.write(standalone_ha_path)
-    print('Python might have been a bit over-smart when modifying XML. Hope JBoss doesn\'t break!')
-  # Come back to workdir
+      print(f'Found HyperSign Provider {provider_key}! Config update isn\'t needed.')
+    else:
+      print(f'Found provider {provider_key}')
+  
+  # Update configuration in-place
+  if not is_registered:
+    print('Editing Configuration...')
+    new_provider_node = standalone_ha_soup.new_tag('provider')
+    new_provider_node.string = hs_provider_key
+    providers_node.append(new_provider_node)
+    with open(standalone_ha_path, 'w') as fp:
+      fp.write(str(standalone_ha_soup))
+
+  # Finally, come back to workdir
   os.chdir(workdir)
 
 run(step_download_extract_install)
