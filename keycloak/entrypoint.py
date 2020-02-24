@@ -177,7 +177,7 @@ def is_step_complete(step: str):
 def set_step_incomplete(step: str):
   step_file = workdir.joinpath(step)
   if step_file.exists():
-    step_file.remove()
+    step_file.unlink()
 
 # Mark step as complete
 def set_step_complete(step: str):
@@ -253,7 +253,7 @@ def step_download_extract_install():
     installed_file_handle = theme_install_dir.joinpath(theme_file_name)
     if installed_file_handle.exists():
       print(f"File '{installed_file_handle}' already exists. It'll be replaced!")
-      installed_file_handle.remove()
+      installed_file_handle.unlink()
     shutil.copy2(extracted_file_handle, theme_install_dir)
     print(f"Theme file '{theme_install_dir}' installed!")
 
@@ -262,7 +262,7 @@ def step_download_extract_install():
   cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
   if cfg_file.exists():
     print(f'Found old copy of {cfg_file}. Deleting it!')
-    cfg_file.remove()
+    cfg_file.unlink()
   cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
   write_to_file(cfg_file, cfg_text)
 
@@ -271,7 +271,7 @@ def step_download_extract_install():
   copy_jar_path = KCBASE.joinpath(HS_PLUGIN_JAR)
   if copy_jar_path.exists():
     print(f'Fike {copy_jar_path} exists. It will be replaced...')
-    copy_jar_path.remove()
+    copy_jar_path.unlink()
   print(f'Copying {dld_jar_path} file into {KCBASE}...')
   shutil.copy2(dld_jar_path, KCBASE)
 
@@ -282,7 +282,7 @@ def step_download_extract_install():
   module_basedir = KCBASE.joinpath('modules').joinpath('hs-plugin-keycloak-ejb')
   if module_basedir.exists():
     print(f'Module already exists at {module_basedir}. It will be deleted & re-created.')
-    module_basedir.remove()
+    module_basedir.rmdir()
   # We are using a command file, however, because it's less unstable
   plugin_deploy_command = f'module add --name=hs-plugin-keycloak-ejb --resources={KCBASE.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
   write_to_file('plugin_deploy.cli', plugin_deploy_command)
@@ -347,8 +347,15 @@ def step_download_extract_install():
 
 run(step_download_extract_install)
 
+# FIXME remove
+input("Starting KeyCloak. Press Enter to continue...")
+
 # Start KeyCloak and Login!
 KEYCLOAK_HANDLE.start()
+
+# FIXME remove
+input("Started KeyCloak. Press Enter to continue...")
+
 print('Logging into KeyCloak...')
 # Same command as:
 # ${KCBASE}/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user ${KEYCLOAK_USER} --password ${KEYCLOAK_PASSWORD}
