@@ -21,6 +21,7 @@ import json
 import hashlib
 from typing import List
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 # Constants also exported as environment variables so that all subprocesses
 # have access to them.
@@ -221,8 +222,13 @@ if not workdir.exists():
 os.chdir(workdir)
 print(f'Switched to HyperSign working directory {workdir}')
 
-# Download HyperSign Keycloak Authenticator & Extract it
-def step_download_extract():
+# Decide if we are on windows or Linux and then set the CLIs
+cli_suffix = 'bat' if os.name == 'nt' else 'sh'
+jboss_cli = str(KCBASE.joinpath('bin').joinpath(f'jboss-cli.{cli_suffix}'))
+kcadm_cli = str(KCBASE.joinpath('bin').joinpath(f'kcadm.{cli_suffix}'))
+
+# Download HyperSign Keycloak Authenticator, Extract it and Install it!
+def step_download_extract_install():
 
   downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
   dld_with_checks(AUTHENTICATOR_BUILD_URL, downloaded_tarball, AUTHENTICATOR_CHECKSUM)
@@ -238,59 +244,90 @@ def step_download_extract():
   os.chdir(extract_dir)
   tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
 
-  # Copy plugin JAR
-  plugin_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
-  print(f'Copying {plugin_jar_path} file into {KCBASE}...')
-  shutil.copy2(plugin_jar_path, KCBASE)
-  # Find out how deploying to the below directory is different!
-  # kc_deployments = KCBASE.joinpath('standalone').joinpath('deployments')
-  # print(f'Copying {plugin_jar_path} file into {kc_deployments}')
-  # shutil.copy2(plugin_jar_path, kc_deployments)
-
   # Copy theme
-  theme_from_dir = extract_dir.joinpath('hs-themes')
-  theme_to_dir = KCBASE.joinpath('themes').joinpath('base').joinpath('login')
-  print(f'Copying hypersign theme from {theme_from_dir} to {theme_to_dir}...')
-  shutil.copy2(theme_from_dir.joinpath('hypersign-config.ftl'), theme_to_dir)
-  shutil.copy2(theme_from_dir.joinpath('hypersign.ftl'), theme_to_dir)
-  shutil.copy2(theme_from_dir.joinpath('hypersign-new.ftl'), theme_to_dir)
+  theme_extract_dir = extract_dir.joinpath('hs-themes')
+  theme_install_dir = KCBASE.joinpath('themes').joinpath('base').joinpath('login')
+  print(f'Copying hypersign theme from {theme_extract_dir} to {theme_install_dir}...')
+  for theme_file_name in ['hypersign-config.ftl', 'hypersign.ftl', 'hypersign-new.ftl']:
+    extracted_file_handle = theme_extract_dir.joinpath(theme_file_name)
+    installed_file_handle = theme_install_dir.joinpath(theme_file_name)
+    if installed_file_handle.exists():
+      print(f"File '{installed_file_handle}' already exists. It'll be replaced!")
+      installed_file_handle.remove()
+    shutil.copy2(extracted_file_handle, theme_install_dir)
+    print(f"Theme file '{theme_install_dir}' installed!")
 
   # Deploy HyperSign config file
   print('Deploying configuration file...')
   cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
+  if cfg_file.exists():
+    print(f'Found old copy of {cfg_file}. Deleting it!')
+    cfg_file.remove()
   cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
   write_to_file(cfg_file, cfg_text)
 
-run_once(step_download_extract)
+  # Copy plugin JAR
+  dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
+  copy_jar_path = KCBASE.joinpath(HS_PLUGIN_JAR)
+  if copy_jar_path.exists():
+    print(f'Fike {copy_jar_path} exists. It will be replaced...')
+    copy_jar_path.remove()
+  print(f'Copying {dld_jar_path} file into {KCBASE}...')
+  shutil.copy2(dld_jar_path, KCBASE)
 
-# Decide if we are on windows or Linux and then set the CLIs
-cli_suffix = 'bat' if os.name == 'nt' else 'sh'
-jboss_cli = str(KCBASE.joinpath('bin').joinpath(f'jboss-cli.{cli_suffix}'))
-kcadm_cli = str(KCBASE.joinpath('bin').joinpath(f'kcadm.{cli_suffix}'))
+  # Note: The next two sections follow from
+  # https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
 
-# Start KeyCloak...
-KEYCLOAK_HANDLE.start()
-
-os.chdir(workdir)
-
-# Deploy Plugin
-def step_plugin_deploy():
+  # Creating Module for HyperSign
+  module_basedir = KCBASE.joinpath('modules').joinpath('hs-plugin-keycloak-ejb')
+  if module_basedir.exists():
+    print(f'Module already exists at {module_basedir}. It will be deleted & re-created.')
+    module_basedir.remove()
+  # We are using a command file, however, because it's less unstable
   plugin_deploy_command = f'module add --name=hs-plugin-keycloak-ejb --resources={KCBASE.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
   write_to_file('plugin_deploy.cli', plugin_deploy_command)
   subprocess.run([jboss_cli, '--file=plugin_deploy.cli']).check_returncode()
-run_once(step_plugin_deploy)
 
-# Add HyperSign Module to KeyCloak Configuration
-def step_add_hs_module_to_kc_config():
-  print('Adding HyperSign module to KeyCloak configuration...')
-  subprocess.run([
-    jboss_cli,
-    '--connect',
-    '--controller=localhost:9990',
-    '--command=\'/subsystem=keycloak-server/:write-attribute(name=providers,value=["classpath:${jboss.home.dir}/providers/*","module:hs-plugin-keycloak-ejb"])\'',
-  ])
-run_once_restart(step_add_hs_module_to_kc_config)
+  # Registering Module with KeyCloak
+  #
+  # This needs us to edit ${KCBASE}/standalone/configuration/standalone-ha.xml
+  # First, search for <subsystem xmlns="urn:jboss:domain:keycloak-server:1.1">
+  # Second, update it's providers entry
+  # It needs to contain <provider>classpath:${jboss.home.dir}/providers/*</provider>
+  # It also needs to contain <provider>module:hs-plugin-keycloak-ejb</provider>
+  #
+  # Against a running KeyCloak, you can simply do
+  #
+  # jboss-cli.sh --connect --command='/subsystem=keycloak-server/:write-attribute(name=providers,value=["classpath:${jboss.home.dir}/providers/*","module:hs-plugin-keycloak-ejb"])'
+  #
+  # But since we're trying to avoid restarts, we directly edit that XML in Python
+  standalone_ha_path = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('standalone-ha.xml')
+  expected_entry = 'module:hs-plugin-keycloak-ejb'
+  print(f'Inspecting {standalone_ha_path} to see if {expected_entry} is registered')
+  standalone_ha_tree = ET.parse(standalone_ha_path)
+  providers_node = standalone_ha_tree.findall('.//{urn:jboss:domain:keycloak-server:1.1}subsystem/{urn:jboss:domain:keycloak-server:1.1}providers')
+  is_registered = False
+  for child in providers_node:
+    provider_name = child.text.strip()
+    print(f'Found provider ${provider_name}')
+    if provider_name == expected_entry:
+      is_registered = True
+  if is_registered:
+    print(f'Provider {expected_entry} is already registered. Moving on!')
+  else:
+    print(f'Modifying {standalone_ha_path} to add Provider {expected_entry}')
+    new_provider_text = f'<provider xmlns="urn:jboss:domain:keycloak-server:1.1">{expected_entry}</provider>'
+    new_provider_xml = ET.fromstring(new_provider_text)
+    providers_node.append(new_provider_xml)
+    standalone_ha_tree.write(standalone_ha_path)
+    print('Python might have been a bit over-smart when modifying XML. Hope JBoss doesn\'t break!')
+  # Come back to workdir
+  os.chdir(workdir)
 
+run(step_download_extract_install)
+
+# Start KeyCloak and Login!
+KEYCLOAK_HANDLE.start()
 print('Logging into KeyCloak...')
 # Same command as:
 # ${KCBASE}/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user ${KEYCLOAK_USER} --password ${KEYCLOAK_PASSWORD}
