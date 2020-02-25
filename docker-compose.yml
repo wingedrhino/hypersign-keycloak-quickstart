@@ -27,9 +27,11 @@ services:
         DB_SCHEMA: public # PostgreSQL schema; Leave as-is.
         DB_PASSWORD: password # PostgreSQL password; don't expose this database outside!
         KEYCLOAK_USER: admin # You can usually leave this as-is
-        KEYCLOAK_PASSWORD: admin # Change after 1st login in production!!
+        KEYCLOAK_PASSWORD: admin # Change after 1st login in production!!to
         HS_REDIRECT_URI: http://localhost:8000/* # Change to whatever you need in prod!
         HS_CLIENT_ALIAS: hs_playground # Change to app's name!
+        AUTH_FLOW_NAME: 'hs-auth-flow' # leave as-is or update to your own name
+        HYPERSIGN_EXECUTION_NAME: 'Hypersign QR Code' # leave as-is or update to your own name
         HS_AUTH_SERVER_ENDPOINT: http://hs-auth-server:3000 # point to production hs-auth-server
       ports:
         - 8080:8080
