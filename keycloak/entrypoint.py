@@ -28,7 +28,7 @@ from .step_create_execution import step_create_execution
 
 SHELL_ENCODING = shell_encoding()
 
-# Check Environment Variables are mandatory
+# Look for environment variables that are mandatory
 check_env( [
   'DB_VENDOR',
   'DB_ADDR',
@@ -59,23 +59,11 @@ HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR')
 KEYCLOAK_USER = os.getenv('KEYCLOAK_USER')
 KEYCLOAK_PASSWORD = os.getenv('KEYCLOAK_PASSWORD')
 
-# TODO: Read CLI Arguments here
-
-# Set Keycloak handle
+# Begin Execution
 keycloak_handle = KeycloakHandle()
-
-# Main execution start!
-
-
 step_download_extract_install()
-
-# Start KeyCloak and Login!
 keycloak_handle.start()
 keycloak_handle.login()
 ensure_hs_flow()
 step_create_execution()
-
 subprocess.run(['sleep', 'infinity'])
-
-# At this point we've basically used Python like an init system
-
