@@ -71,11 +71,8 @@ step_download_extract_install()
 
 # Start KeyCloak and Login!
 keycloak_handle.start()
-
 keycloak_handle.login()
-
 ensure_hs_flow()
-
 step_create_execution()
 
 subprocess.run(['sleep', 'infinity'])
