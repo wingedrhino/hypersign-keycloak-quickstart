@@ -42,6 +42,8 @@ class KeycloakHandle:
       print('If execution_strategy is not docker or kcdist, provide a custom start command!')
 
   def start(self):
+    if self.running:
+      print('Keycloak ')
     print('Starting KeyCloak...')
     self.handle = subprocess.Popen(
       self.startcmd,
@@ -52,6 +54,8 @@ class KeycloakHandle:
     print('...Started KeyCloak!')
 
   def stop(self):
+    if not self.running:
+      return
     print('Stopping KeyCloak...')
     self.handle.terminate()
     self.handle.wait()
@@ -86,5 +90,11 @@ class KeycloakHandle:
       '--password', KEYCLOAK_PASSWORD,
     ]).check_returncode()
     print('...Successfully logged into KeyCloak!')
+  
+  def __del__(self):
+    if self.running:
+      print(f'Keycloak Destructor: Premature destruction of running keycloak handle! Calling stop.')
+      self.stop()
+      print(f'Keycloak Destructor: Keycloak has (hopefully) been shutdown gracefully. Bye now!')
 
 singleton = KeycloakHandle(KCBASE, KC_EXECUTION_STRATEGY)
