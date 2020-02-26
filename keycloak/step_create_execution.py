@@ -4,8 +4,8 @@
 import os
 import subprocess
 import json
-from .env import shell_encoding
-from .keycloak import singleton
+from env import shell_encoding
+from keycloak import singleton
 
 AUTH_FLOW_NAME = os.getenv('AUTH_FLOW_NAME')
 HYPERSIGN_EXECUTION_NAME = os.getenv('HYPERSIGN_EXECUTION_NAME')

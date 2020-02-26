@@ -12,10 +12,10 @@ import subprocess
 from bs4 import BeautifulSoup # Ensure LXML is installed
 
 # Local Imports
-from .downloader import dld_with_checks
-from .fileio import write_to_file
-from .fileio import read_from_file
-from .keycloak import singleton
+from downloader import dld_with_checks
+from fileio import write_to_file
+from fileio import read_from_file
+from keycloak import singleton
 
 # Environment Variables
 AUTHENTICATOR_BUILD_URL = os.getenv('AUTHENTICATOR_BUILD_URL')
