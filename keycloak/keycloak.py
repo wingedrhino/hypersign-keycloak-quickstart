@@ -127,7 +127,7 @@ class KeycloakHandle:
 
     is_ready = False
     for i in range(STARTUP_WAIT_MAX_RETRIES):
-      print('Checking if keycloak has started. Iteration #{i}')
+      print(f'Checking if keycloak has started. Iteration #{i}')
       is_ready = self.is_ready()
       if is_ready:
         break
