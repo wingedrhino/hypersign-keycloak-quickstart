@@ -6,6 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 import tarfile
+import subprocess
 
 # Third Party Imports
 from bs4 import BeautifulSoup # Ensure LXML is installed
@@ -14,7 +15,9 @@ from bs4 import BeautifulSoup # Ensure LXML is installed
 from .downloader import dld_with_checks
 from .fileio import write_to_file
 from .fileio import read_from_file
+from .keycloak import singleton
 
+# Environment Variables
 AUTHENTICATOR_BUILD_URL = os.getenv('AUTHENTICATOR_BUILD_URL')
 AUTHENTICATOR_TGZ_FILE = os.getenv('AUTHENTICATOR_TGZ_FILE')
 HS_PLUGIN_JAR = os.getenv('HS_PLUGIN_JAR')
@@ -23,34 +26,36 @@ HS_AUTH_SERVER_ENDPOINT = os.getenv('HS_AUTH_SERVER_ENDPOINT')
 KCBASE = os.getenv('KCBASE')
 HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR')
 
-# Download HyperSign Keycloak Authenticator, Extract it and Install it!
-def step_download_extract_install(workdir_str = HYPERSIGN_WORKDIR):
+# Constants
+MODULE_NAME = 'hs-plugin-keycloak-ejb'
+EXTRACT_DIR_NAME = 'hs-authenticator'
 
-  original_cwd = os.getcwd()
-  workdir = Path(workdir_str)
-  if not workdir.exists():
-    print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
-    sys.exit(1)
-  os.chdir(workdir)
-  print(f'Switched to HyperSign working directory {workdir}')
+# Derive Paths for use by other methods
+workdir = Path(HYPERSIGN_WORKDIR)
+if not workdir.exists():
+  print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
+  sys.exit(1)
+extract_dir = workdir.joinpath(EXTRACT_DIR_NAME)
+downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
+dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
+kcbase = Path(KCBASE)
+copy_jar_path = kcbase.joinpath(HS_PLUGIN_JAR)
+module_basedir = kcbase.joinpath('modules').joinpath(MODULE_NAME)
 
-  downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
+
+def download_files():
   dld_with_checks(AUTHENTICATOR_BUILD_URL, downloaded_tarball, AUTHENTICATOR_CHECKSUM)
 
-  extract_dir = workdir.joinpath('hs-authenticator')
+def extract_files():
   if extract_dir.exists():
     print(f"Deleting directory '{extract_dir}' because it already exists")
     shutil.rmtree(extract_dir)
-
-  print('Uncompressing Plugin...')
   tarfile.open(downloaded_tarball).extractall(workdir)
-  extract_dir = workdir.joinpath('hs-authenticator')
-  os.chdir(extract_dir)
   tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
 
-  # Copy theme
+def install_theme():
   theme_extract_dir = extract_dir.joinpath('hs-themes')
-  theme_install_dir = KCBASE.joinpath('themes').joinpath('base').joinpath('login')
+  theme_install_dir = kcbase.joinpath('themes').joinpath('base').joinpath('login')
   print(f'Copying hypersign theme from {theme_extract_dir} to {theme_install_dir}...')
   for theme_file_name in ['hypersign-config.ftl', 'hypersign.ftl', 'hypersign-new.ftl']:
     extracted_file_handle = theme_extract_dir.joinpath(theme_file_name)
@@ -61,66 +66,88 @@ def step_download_extract_install(workdir_str = HYPERSIGN_WORKDIR):
     shutil.copy2(extracted_file_handle, theme_install_dir)
     print(f"Theme file '{theme_install_dir}' installed!")
 
+# deploy_config generates a hypersign.properties file that has the
+# auth-server-endpoint value correctly set, as per environment variable
+def deploy_config():
   # Deploy HyperSign config file
   print('Deploying configuration file...')
-  cfg_file = KCBASE.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
+  cfg_file = kcbase.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
   if cfg_file.exists():
     print(f'Found old copy of {cfg_file}. Deleting it!')
     cfg_file.unlink()
   cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
   write_to_file(cfg_file, cfg_text)
 
-  # Copy plugin JAR
-  dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
-  # copy_jar_path = KCBASE.joinpath(HS_PLUGIN_JAR)
-  # if copy_jar_path.exists():
-  #   print(f'Fike {copy_jar_path} exists. It will be replaced...')
-  #   copy_jar_path.unlink()
-  # print(f'Copying {dld_jar_path} file into {KCBASE}...')
-  # shutil.copy2(dld_jar_path, KCBASE)
-
-  # Note: The next two sections follow from
-  # https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
-
-  # Create a Module for HyperSign
-  # We copy the hypersign's jar (extracted) and module.xml (included) into
-  # ${KCBASE}/hs-plugin-keycloak-ejb/main
-  module_basedir = KCBASE.joinpath('modules').joinpath('hs-plugin-keycloak-ejb')
+# Clear module deletes the installed module.
+def clear_module():
   if module_basedir.exists():
-    print(f'Module already exists at {module_basedir}. It will be deleted & re-created.')
+    print(f'Module already exists at {module_basedir}. It will be deleted.')
     shutil.rmtree(module_basedir)
+  if copy_jar_path.exists():
+    print(f'File {copy_jar_path} exists. It will be deleted.')
+    copy_jar_path.unlink()
 
-  # Okay, I know this sort of variable re-using is bad. But given the situation
-  # It is kinda appropria
+# We don't currently use this. This version of deploy module copies files
+# manually and assumes that a correctly formatted module.xml is available inside
+# the workdir!
+# # https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
+def deploy_module_copyfiles():
   os.mkdir(module_basedir)
-  module_basedir = module_basedir.joinpath('main')
-  os.mkdir(module_basedir)
-  shutil.copy2(workdir.joinpath('module.xml'), module_basedir)
-  shutil.copy2(dld_jar_path, module_basedir)
+  module_maindir = module_basedir.joinpath('main')
+  os.mkdir(module_maindir)
+  shutil.copy2(workdir.joinpath('module.xml'), module_maindir)
+  shutil.copy2(dld_jar_path, module_maindir)
 
-  # We are using a command file, however, because it's less unstable
-  # module_add_cmd = f'module add --name=hs-plugin-keycloak-ejb --resources={KCBASE.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
-  # write_to_file('plugin_deploy.cli', module_add_cmd)
-  # subprocess.run([jboss_cli, '--file=plugin_deploy.cli']).check_returncode()
+# Deploy a module using jboss CLI's add command
+# https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
+def deploy_module_cli(kc = singleton):
+  print(f'Copying {dld_jar_path} file into {kcbase}...')
+  shutil.copy2(dld_jar_path, kcbase)
 
-  # Register HyperSign as a KeyCloak provider using Modules
-  # https://www.keycloak.org/docs/latest/server_development/#register-a-provider-using-modules
+  # Terminal Command Equivalent:
+  #
+  # {$KCBASE}.bin/jboss-cli.sh --command="module add --name=hs-plugin-keycloak-ejb --resources=${KCBASE}/${HS_PLUGIN_JAR} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser"
 
-  standalone_ha_path = KCBASE.joinpath('standalone') \
+  # (Working Version): Create a .cli file with commands and pass this to the
+  # JBoss CLI to execute
+  def deploy_commandfile_cli():
+    module_add_cmd = f'module add --name={MODULE_NAME} --resources={kcbase.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
+    deploy_cli = 'plugin_deploy.cli'
+    write_to_file(deploy_cli, module_add_cmd)
+    subprocess.run([kc.jboss_cli, f'--file={deploy_cli}']).check_returncode()
+
+  # (Cleaner; non-working version): directly pass commands as arguments to the
+  # JBoss CLI to execute.
+  def deploy_args_cli():
+    subprocess.run([
+      kc.jboss_cli,
+      f'--command="module add --name={MODULE_NAME} --resources={KCBASE}/{HS_PLUGIN_JAR} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser"'
+    ]).check_returncode()
+  
+  deploy_commandfile_cli() # Pick the safe option!
+
+def deploy_module(kc = singleton):
+  clear_module()
+  deploy_module_cli()
+
+# Register HyperSign as a KeyCloak provider using Modules
+# https://www.keycloak.org/docs/latest/server_development/#register-a-provider-using-modules
+def register_module():
+  cfg_path = kcbase.joinpath('standalone') \
                              .joinpath('configuration') \
                              .joinpath('standalone-ha.xml')
   
-  hs_provider_key = 'module:hs-plugin-keycloak-ejb'
-  print(f'Inspecting {standalone_ha_path} to see if {hs_provider_key} is registered')
+  provider_key = f'module:{MODULE_NAME}'
+  print(f'Inspecting {cfg_path} to see if {provider_key} is registered')
 
   # Read XML file and parse in Soup
-  standalone_ha_text = read_from_file(standalone_ha_path)
-  standalone_ha_soup = BeautifulSoup(standalone_ha_text, 'xml')
+  cfg_text = read_from_file(cfg_path)
+  cfg_soup = BeautifulSoup(cfg_text, 'xml')
   
   # Find a subsystem element such that it's
   # xmlns attribute is urn:jboss:domain:keycloak-server:1.1
   # Then find the providers element inside that file.
-  providers_node = standalone_ha_soup.find(
+  providers_node = cfg_soup.find(
     'subsystem',
     attrs={'xmlns':'urn:jboss:domain:keycloak-server:1.1'}
   ).find('providers')
@@ -129,7 +156,7 @@ def step_download_extract_install(workdir_str = HYPERSIGN_WORKDIR):
   is_registered = False
   for provider_node in providers_node.findAll('provider'):
     provider_key = provider_node.text.strip()
-    if provider_key == hs_provider_key:
+    if provider_key == provider_key:
       is_registered = True
       print(f'Found HyperSign Provider {provider_key}! Config update isn\'t needed.')
     else:
@@ -138,10 +165,16 @@ def step_download_extract_install(workdir_str = HYPERSIGN_WORKDIR):
   # Update configuration in-place
   if not is_registered:
     print('Editing Configuration...')
-    new_provider_node = standalone_ha_soup.new_tag('provider')
-    new_provider_node.string = hs_provider_key
+    new_provider_node = cfg_soup.new_tag('provider')
+    new_provider_node.string = provider_key
     providers_node.append(new_provider_node)
-    write_to_file(standalone_ha_path, str(standalone_ha_soup))
+    write_to_file(cfg_path, str(cfg_soup))
 
-  # Finally, come back to original directory
-  os.chdir(original_cwd)
+# Download HyperSign Keycloak Authenticator, Extract it and Install it!
+def step_download_extract_install(kc = singleton):
+  download_files()
+  extract_files()
+  install_theme()
+  deploy_config()
+  deploy_module(kc)
+  register_module()
