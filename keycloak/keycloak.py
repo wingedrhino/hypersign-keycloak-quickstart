@@ -4,6 +4,7 @@
 import subprocess
 import os
 import time
+import sys
 from pathlib import Path
 
 KEYCLOAK_USER = os.getenv('KEYCLOAK_USER')
@@ -25,9 +26,9 @@ class KeycloakHandle:
     
     self.handle = None
     self.running = False
-    
+
     cli_suffix = 'bat' if os.name == 'nt' else 'sh'
-    
+
     self.jboss_cli = str(kcbase.joinpath('bin').joinpath(f'jboss-cli.{cli_suffix}'))
     self.kcadm_cli = str(kcbase.joinpath('bin').joinpath(f'kcadm.{cli_suffix}'))
 
@@ -40,6 +41,10 @@ class KeycloakHandle:
       startcmd = custom_startcmd
     else:
       print('If execution_strategy is not docker or kcdist, provide a custom start command!')
+      sys.exit(1)
+
+    # This would be used to start/stop keycloak
+    self.startcmd = startcmd
 
   def start(self):
     if self.running:
