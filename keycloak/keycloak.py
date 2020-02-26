@@ -109,7 +109,7 @@ class KeycloakHandle:
 
   def is_ready(self):
     exitcode, output = self.invoke_jboss_cli('is-kc-up', 'connect\n:read-attribute(name=server-state)')
-    is_json, res = json.loads(output)
+    is_json, res = strutil.to_json_if_json(output)
     print(f'Keycloak is_ready check. exitcode: {exitcode}. output:\n{output}\n')
     if exitcode != 0 or not is_json or res.get('outcome') != 'success' or res.get('result') != 'running':
       return False
