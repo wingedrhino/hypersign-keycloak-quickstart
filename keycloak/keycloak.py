@@ -108,3 +108,4 @@ singleton = KeycloakHandle(KCBASE, KC_EXECUTION_STRATEGY)
 if __name__ == '__main__':
   singleton.start()
   singleton.login()
+  subprocess.run(['sleep', 'infinity'])
