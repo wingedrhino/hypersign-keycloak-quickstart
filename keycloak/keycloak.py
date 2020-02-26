@@ -98,8 +98,8 @@ class KeycloakHandle:
     cli_name = f'{cmdname}.hskc.jboss.cli'
     cli_location = self._kcbase.joinpath(cli_name)
     strutil.write_to_file(cli_location, commands)
-    args = [self._jboss_cli, '--echo-command', '--output-json', f'--file="{cli_location}"']
-    exitcode, output = subprocess.getstatusoutput(args)
+    cmd = f'{self._jboss_cli} --echo-command --output-json --file="{cli_location}"'
+    exitcode, output = subprocess.getstatusoutput(cmd)
     return exitcode, output
   
   def invoke_jboss_cli_raise_error(self, cmdname, commands):
@@ -187,4 +187,3 @@ if __name__ == '__main__':
   singleton.start()
   singleton.login()
   subprocess.run(['sleep', 'infinity'])
-  
