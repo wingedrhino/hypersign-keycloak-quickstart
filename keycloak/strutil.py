@@ -1,4 +1,8 @@
+# Stdlib imports
 import json
+
+# Local imports
+import env
 
 # Writes some text to a file
 def write_to_file(filepath: str, text: str):
@@ -14,7 +18,7 @@ def read_from_file(filepath: str) -> str:
 # Checks if this text is JSON and then returns the json-encoded text
 def to_json_if_json(txt: str):
   try:
-    json_obj = json.loads(txt)
+    json_obj = json.loads(txt, encoding=env.shell_encoding())
   except ValueError:
     return False, None
   return True, json_obj

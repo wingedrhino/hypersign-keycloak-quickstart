@@ -6,7 +6,6 @@ import shutil
 import sys
 from pathlib import Path
 import tarfile
-import subprocess
 
 # Third Party Imports
 from bs4 import BeautifulSoup # Ensure LXML is installed
@@ -108,7 +107,7 @@ def deploy_module_cli(kc = singleton):
   # Execute Add Module Command
   jboss_cli_commands = f'module add --name={MODULE_NAME} --resources={kcbase.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
   jboss_cli_name = 'plugin_deploy'
-  kc.invoke_jboss_cli_raise_error(jboss_cli_name, jboss_cli_commands)
+  kc.jboss_cli_raise_error(jboss_cli_name, jboss_cli_commands)
   
 
 def deploy_module(kc = singleton):

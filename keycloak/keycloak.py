@@ -5,7 +5,6 @@ import subprocess
 import os
 import time
 import sys
-import json
 from pathlib import Path
 
 # Local imports
@@ -32,7 +31,14 @@ class JbossCliError(KeycloakError):
     self.output = output
     self.cmdname = cmdname
     self.commands = commands
-    self.message = f'JBOSS CLI Error.\n\Cmdname: {cmdname}.\n\nCommands:\n{commands}\n\n Exit Code: {exitcode}.\n\nOutput:\n{output}\n\n'
+    self.message = f'Exception in jboss_cli.\n\Cmdname: {cmdname}.\n\nCommands:\n{commands}\n\n Exit Code: {exitcode}.\n\nOutput:\n{output}\n\n'
+
+class KcadmcliError(KeycloakError):
+  def __init__(self, exitcode, output, args):
+    self.exitcode = exitcode
+    self.output = output
+    self.args = args
+    self.message = f'Exception in kcadm_cli. Args: "{args}". Exit Code: {exitcode}. Output:\n{output}\n\n'
 
 class KeycloakWaitTimeExceededError(KeycloakError):
   def __init__(self):
@@ -87,15 +93,27 @@ class KeycloakHandle:
     self.running = True
     print('...Started KeyCloak!')
 
-  # kcadm_cli returns where kcadm_cli.sh/kcadm_cli.bat is located
-  def kcadm_cli(self) -> str:
-    return self.kcadm_cli
+  # kcadm_cli invokes the kcadm_cli with the provided args
+  # it returns the exitcode and the output of the command
+  def kcadm_cli(self, args):
+    return subprocess.getstatusoutput(f'{self._kcadm_cli} {args}')
   
+  def kcadm_cli_raise_error(self, args):
+    exitcode, output = self.kcadm_cli(args)
+    if exitcode != 0:
+      raise KcadmcliError(exitcode, output, args)
+    return output
+
+  def kcadm_cli_as_json_raise_error(self, args):
+    output = self.kcadm_cli_raise_error(args)
+    _, json_output = strutil.to_json_if_json(output)
+    return json_output
+
   # Create ${KCBASE}/cmdname.hskc.jboss.cli with the contents of commands and
   # then invoke it via jboss_cli.sh --output-json --file=cmdname.hskc.jboss.cli
   # The contents of ${KCBASE}/cmdname.jboss.cli are left intact, so you can
   # manually execute them later for debugging.
-  def invoke_jboss_cli(self, cmdname, commands):
+  def jboss_cli(self, cmdname, commands):
     cli_name = f'{cmdname}.hskc.jboss.cli'
     cli_location = self._kcbase.joinpath(cli_name)
     strutil.write_to_file(cli_location, commands)
@@ -103,13 +121,14 @@ class KeycloakHandle:
     exitcode, output = subprocess.getstatusoutput(cmd)
     return exitcode, output
   
-  def invoke_jboss_cli_raise_error(self, cmdname, commands):
-    exitcode, output = self.invoke_jboss_cli(cmdname, commands)
+  def jboss_cli_raise_error(self, cmdname, commands):
+    exitcode, output = self.jboss_cli(cmdname, commands)
     if exitcode != 0:
       raise JbossCliError(exitcode, output, cmdname, commands)
+    return output
 
   def is_ready(self):
-    exitcode, output = self.invoke_jboss_cli('is-kc-up', 'connect\n:read-attribute(name=server-state)')
+    exitcode, output = self.jboss_cli('is-kc-up', 'connect\n:read-attribute(name=server-state)')
     is_json, res = strutil.to_json_if_json(output)
     print(f'Keycloak is_ready check. exitcode: {exitcode}. output:\n{output}\n')
     if exitcode != 0 or not is_json or res.get('outcome') != 'success' or res.get('result') != 'running':
@@ -161,18 +180,13 @@ class KeycloakHandle:
     print('Logging into KeyCloak...')
     # Same command as:
     # ${KCBASE}/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user ${KEYCLOAK_USER} --password ${KEYCLOAK_PASSWORD}
-    subprocess.run([
-      self.kcadm_cli(), 'config', 'credentials',
-      '--server', f'{KC_BASEURL}/auth',
-      '--realm', 'master',
-      '--user', KEYCLOAK_USER,
-      '--password', KEYCLOAK_PASSWORD,
-    ]).check_returncode()
+    args = f'config credentials --server http://localhost:8080/auth --realm master --user {KEYCLOAK_USER} --password {KEYCLOAK_PASSWORD}'
+    self.kcadm_cli_raise_error(args)
     print('...Successfully logged into KeyCloak!')
 
   def kill(self):
     print('Attempting to kill Keycloak...')
-    _, msg = self.invoke_jboss_cli('shutdown', 'connect\nshutdown')
+    _, msg = self.jboss_cli('shutdown', 'connect\nshutdown')
     print(msg)
     print('...Done attempting to kill Keycloak!')
 
