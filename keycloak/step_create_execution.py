@@ -19,6 +19,7 @@ def step_create_execution(
   execution_name=HYPERSIGN_EXECUTION_NAME,
 ):
   kc.start()
+  kc.login()
   print('Checking if HyperSign Execution is present...')
   is_execution_present = False
   # Same command as:
