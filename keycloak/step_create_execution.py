@@ -4,7 +4,9 @@
 import os
 import subprocess
 import json
-from env import shell_encoding
+
+# Local Imports
+import env
 from keycloak import singleton
 
 AUTH_FLOW_NAME = os.getenv('AUTH_FLOW_NAME')
@@ -41,7 +43,7 @@ def step_create_execution(
   #     "displayName": "OTP Form"
   #   }
   # ]
-  execution_presence = json.loads(execution_presence_json.decode(shell_encoding()))
+  execution_presence = json.loads(execution_presence_json.decode(env.shell_encoding()))
   for ep in execution_presence:
     print(f'Found flow {ep.displayName}')
     if ep.displayName == execution_name:
@@ -61,3 +63,7 @@ def step_create_execution(
       '-s', 'requirement=REQUIRED'
     ])
     print(f'Creation of execution {execution_name} successful!')
+
+# Main()
+if __name__ == '__main__':
+  step_create_execution()

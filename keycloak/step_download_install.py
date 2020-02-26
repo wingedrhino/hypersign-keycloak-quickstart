@@ -178,3 +178,7 @@ def step_download_extract_install(kc = singleton):
   deploy_config()
   deploy_module(kc)
   register_module()
+
+# Main()
+if __name__ == '__main__':
+  step_download_extract_install()

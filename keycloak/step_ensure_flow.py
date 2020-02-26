@@ -54,3 +54,7 @@ def ensure_hs_flow(kc = singleton):
     flow_id = create_flow_output # TODO why does this output empty string?
     print(f'Created HyperSign Flow with Flow ID "{flow_id}"')
     kc.restart()
+
+# Main()
+if __name__ == '__main__':
+  ensure_hs_flow()
