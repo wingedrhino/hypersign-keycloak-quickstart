@@ -13,8 +13,7 @@ from bs4 import BeautifulSoup # Ensure LXML is installed
 
 # Local Imports
 from downloader import dld_with_checks
-from fileio import write_to_file
-from fileio import read_from_file
+import strutil
 from keycloak import singleton
 
 # Environment Variables
@@ -76,7 +75,7 @@ def deploy_config():
     print(f'Found old copy of {cfg_file}. Deleting it!')
     cfg_file.unlink()
   cfg_text =  f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
-  write_to_file(cfg_file, cfg_text)
+  strutil.write_to_file(cfg_file, cfg_text)
 
 # Clear module deletes the installed module.
 def clear_module():
@@ -101,30 +100,16 @@ def deploy_module_copyfiles():
 # Deploy a module using jboss CLI's add command
 # https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
 def deploy_module_cli(kc = singleton):
+
+  # Copy JAR
   print(f'Copying {dld_jar_path} file into {kcbase}...')
   shutil.copy2(dld_jar_path, kcbase)
 
-  # Terminal Command Equivalent:
-  #
-  # {$KCBASE}.bin/jboss-cli.sh --command="module add --name=hs-plugin-keycloak-ejb --resources=${KCBASE}/${HS_PLUGIN_JAR} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser"
-
-  # (Working Version): Create a .cli file with commands and pass this to the
-  # JBoss CLI to execute
-  def deploy_commandfile_cli():
-    module_add_cmd = f'module add --name={MODULE_NAME} --resources={kcbase.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
-    deploy_cli = 'plugin_deploy.cli'
-    write_to_file(deploy_cli, module_add_cmd)
-    subprocess.run([kc.jboss_cli, f'--file={deploy_cli}']).check_returncode()
-
-  # (Cleaner; non-working version): directly pass commands as arguments to the
-  # JBoss CLI to execute.
-  def deploy_args_cli():
-    subprocess.run([
-      kc.jboss_cli,
-      f'--command="module add --name={MODULE_NAME} --resources={KCBASE}/{HS_PLUGIN_JAR} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser"'
-    ]).check_returncode()
+  # Execute Add Module Command
+  jboss_cli_commands = f'module add --name={MODULE_NAME} --resources={kcbase.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
+  jboss_cli_name = 'plugin_deploy'
+  kc.invoke_jboss_cli_raise_error(jboss_cli_name, jboss_cli_commands)
   
-  deploy_commandfile_cli() # Pick the safe option!
 
 def deploy_module(kc = singleton):
   clear_module()
@@ -141,7 +126,7 @@ def register_module():
   print(f'Inspecting {cfg_path} to see if {provider_key} is registered')
 
   # Read XML file and parse in Soup
-  cfg_text = read_from_file(cfg_path)
+  cfg_text = strutil.read_from_file(cfg_path)
   cfg_soup = BeautifulSoup(cfg_text, 'xml')
   
   # Find a subsystem element such that it's
@@ -168,7 +153,7 @@ def register_module():
     new_provider_node = cfg_soup.new_tag('provider')
     new_provider_node.string = provider_key
     providers_node.append(new_provider_node)
-    write_to_file(cfg_path, str(cfg_soup))
+    strutil.write_to_file(cfg_path, str(cfg_soup))
 
 # Download HyperSign Keycloak Authenticator, Extract it and Install it!
 def step_download_extract_install(kc = singleton):
