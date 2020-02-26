@@ -18,7 +18,7 @@ def step_create_execution(
   auth_flow_name=AUTH_FLOW_NAME,
   execution_name=HYPERSIGN_EXECUTION_NAME,
 ):
-
+  kc.start()
   print('Checking if HyperSign Execution is present...')
   is_execution_present = False
   # Same command as:

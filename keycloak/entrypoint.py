@@ -19,17 +19,13 @@ import hashlib
 from typing import List
 
 # Local Imports
-from env import check_env
-from env import shell_encoding
-from keycloak import KeycloakHandle
+import env
 from step_download_install import step_download_extract_install
-from step_ensure_flow import ensure_hs_flow
+from step_ensure_flow import step_ensure_hs_flow
 from step_create_execution import step_create_execution
 
-SHELL_ENCODING = shell_encoding()
-
 # Look for environment variables that are mandatory
-check_env( [
+env.check_env( [
   'DB_VENDOR',
   'DB_ADDR',
   'DB_DATABASE',
@@ -54,16 +50,8 @@ check_env( [
   'KC_BASEURL',
 ])
 
-# Set variables to environment variables
-HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR')
-KEYCLOAK_USER = os.getenv('KEYCLOAK_USER')
-KEYCLOAK_PASSWORD = os.getenv('KEYCLOAK_PASSWORD')
-
 # Begin Execution
-keycloak_handle = KeycloakHandle()
 step_download_extract_install()
-keycloak_handle.start()
-keycloak_handle.login()
-ensure_hs_flow()
+step_ensure_hs_flow()
 step_create_execution()
 subprocess.run(['sleep', 'infinity'])

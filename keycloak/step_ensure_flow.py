@@ -13,7 +13,9 @@ AUTH_FLOW_NAME = os.getenv('AUTH_FLOW_NAME')
 
 
 # Ensure that HyperSign Flow is present
-def ensure_hs_flow(kc = singleton):
+def step_ensure_hs_flow(kc = singleton):
+  kc.start()
+  kc.login()
   print('Checking if HyperSign flow is present...')
   is_hs_flow_present = False
   # This command is the equivalent of
@@ -57,4 +59,4 @@ def ensure_hs_flow(kc = singleton):
 
 # Main()
 if __name__ == '__main__':
-  ensure_hs_flow()
+  step_ensure_hs_flow()

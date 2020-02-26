@@ -43,7 +43,7 @@ class KeycloakHandle:
 
   def start(self):
     if self.running:
-      print('Keycloak ')
+      return
     print('Starting KeyCloak...')
     self.handle = subprocess.Popen(
       self.startcmd,
