@@ -50,8 +50,8 @@ check_env( [
   'AUTH_FLOW_NAME',
   'HYPERSIGN_EXECUTION_NAME',
   'HS_AUTH_SERVER_ENDPOINT',
-  'KC_EXECUTION_STRATEGY'
-  'KC_BASEURL'
+  'KC_EXECUTION_STRATEGY',
+  'KC_BASEURL',
 ])
 
 # Set variables to environment variables
