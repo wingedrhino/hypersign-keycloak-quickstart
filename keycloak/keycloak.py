@@ -82,7 +82,8 @@ class KeycloakHandle:
       self.startcmd, # invoke the configured start command, whatever it might be
       preexec_fn=lambda: os.setuid(1000) # We run KeyCloak as non-root user
     )
-    self.wait_ready()
+    time.sleep(60)
+    # self.wait_ready()
     self.running = True
     print('...Started KeyCloak!')
 
@@ -120,10 +121,6 @@ class KeycloakHandle:
     print('Waiting for keycloak to start....')
   
     total_wait = 0
-    def zzz():
-      print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
-      time.sleep(STARTUP_WAIT_SLEEP_TIME)
-      total_wait += STARTUP_WAIT_SLEEP_TIME
 
     is_ready = False
     for i in range(STARTUP_WAIT_MAX_RETRIES):
@@ -132,7 +129,9 @@ class KeycloakHandle:
       if is_ready:
         break
       else:
-        zzz()
+        print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
+        time.sleep(STARTUP_WAIT_SLEEP_TIME)
+        total_wait += STARTUP_WAIT_SLEEP_TIME
   
     if not is_ready:
       print(f'Max wait time of {STARTUP_WAIT_SLEEP_TIME * STARTUP_WAIT_MAX_RETRIES} seconds exceeded! Throwing exception.')
@@ -172,7 +171,10 @@ class KeycloakHandle:
     print('...Successfully logged into KeyCloak!')
 
   def kill(self):
-    self.invoke_jboss_cli_raise_error('shutdown', 'connect\nshutdown')
+    print('Attempting to kill Keycloak...')
+    _, msg = self.invoke_jboss_cli('shutdown', 'connect\nshutdown')
+    print(msg)
+    print('...Done attempting to kill Keycloak!')
 
   def __del__(self):
     if self.running:
@@ -184,6 +186,7 @@ singleton = KeycloakHandle(KCBASE, KC_EXECUTION_STRATEGY)
 
 # When invoked as a script, simply start and login to keycloak!
 if __name__ == '__main__':
+  singleton.kill()
   singleton.start()
   singleton.login()
   subprocess.run(['sleep', 'infinity'])
