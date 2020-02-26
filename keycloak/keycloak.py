@@ -103,3 +103,8 @@ class KeycloakHandle:
       print(f'Keycloak Destructor: Keycloak has (hopefully) been shutdown gracefully. Bye now!')
 
 singleton = KeycloakHandle(KCBASE, KC_EXECUTION_STRATEGY)
+
+# When invoked as a script, simply start and login to keycloak!
+if __name__ == '__main__':
+  singleton.start()
+  singleton.login()
