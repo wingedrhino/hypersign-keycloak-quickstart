@@ -54,4 +54,25 @@ install `mypy` for performing type checks.
 IDE I recommend to develop on this project. If you're on Linux, you might want
 to [install it via Snapcraft](https://snapcraft.io/pycharm-community.
 
-Install the Markdown, Docker, and mypy plugins there!
+Install the Markdown, Docker, and mypy plugins there.
+
+### Python: Anaconda
+
+I recommend downloading Anaconda for a hassle-free experience with Python,
+since some of you would be on Windows and OSX instead of Linux. While these
+platforms are nowhere close to Linux, you'll atleast get a semblance of a
+generally familiar environment!
+
+After you install Anaconda, run `conda install mypy`.
+
+### Windows 10: Local Install
+
+Windows is a little _too_ different from Linux for it to be developer friendly.
+
+But you can use this installer for a "local" install of Keycloak. Keycloak,
+IntelliJ PyCharm Community, and the Anaconda Python Distribution are all
+available on Windows.
+
+Our Dockerized installer might work if you use Windows 10 Professional. Docker
+does not support Windows 10 Home because it doesn't ship with Hyper-V, on which
+Docker depends.
