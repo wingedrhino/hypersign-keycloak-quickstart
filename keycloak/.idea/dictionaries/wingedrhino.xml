@@ -2,26 +2,34 @@
   <dictionary name="wingedrhino">
     <words>
       <w>addr</w>
+      <w>adduser</w>
       <w>baseurl</w>
       <w>beautifulsoup</w>
       <w>cli</w>
+      <w>databind</w>
       <w>debian</w>
       <w>distros</w>
       <w>dockerized</w>
       <w>entrypoint</w>
       <w>envar</w>
       <w>envars</w>
+      <w>fasterxml</w>
       <w>filepath</w>
       <w>hskc</w>
+      <w>httpcomponents</w>
       <w>hypersign</w>
+      <w>javassist</w>
+      <w>jaxrs</w>
       <w>jboss</w>
       <w>kcadm</w>
       <w>kcbase</w>
       <w>kcdist</w>
+      <w>liquibase</w>
       <w>lxml</w>
       <w>microdnf</w>
       <w>mypy</w>
       <w>procps</w>
+      <w>resteasy</w>
       <w>rhel</w>
       <w>snapcraft</w>
       <w>vimrc</w>

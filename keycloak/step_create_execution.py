@@ -44,7 +44,7 @@ def step_create_execution(
         print(f'Execution {execution_name} is already configured with "{auth_flow_name}" Auth Flow.')
     else:
         print(f'Creating execution: {execution_name}')
-        # This is the same as running
+        # This is the same as _running
         # ${KCBASE}/bin/kcadm.sh create authentication/flows/${AUTH_FLOW_NAME}/executions/execution -r master -s provider=hyerpsign-qrocde-authenticator -s requirement=REQUIRED
         args = f'create authentication/flows/{AUTH_FLOW_NAME}/executions/execution -r master -s provider=hyerpsign-qrocde-authenticator -s requirement=REQUIRED'
         create_execution_result = kc.kcadm_cli_raise_error(args)

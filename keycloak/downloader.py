@@ -1,8 +1,24 @@
 import hashlib
-import sys
 from typing import Any, Tuple
 from pathlib import Path
 from urllib import request
+
+
+class ChecksumMismatchError(Exception):
+
+    def __init__(self, filepath: Path, expected: str, actual: str):
+        self.filepath = filepath
+        self.expected_value = expected
+        self.actual_value = actual
+
+    def __str__(self) -> str:
+        return (
+            'Checksum Mismatch.\n'
+            f'File: {self.filepath}\n'
+            f'Expected Checksum: {self.expected_value}\n'
+            f'Actual Checksum: {self.actual_value}\n'
+            f'Please delete {self.filepath} and try again!'
+        )
 
 
 def sha512sum(filepath: Path) -> str:
@@ -50,6 +66,4 @@ def dld_with_checks(url: str, filepath: Path, expected_checksum: str) -> None:
         checksum_verified, actual_checksum = is_sha512_valid(filepath, expected_checksum)
 
     if not checksum_verified:
-        print(f"Downloaded file '{filepath}' has checksum '{actual_checksum}' but expected'{expected_checksum}'")
-        print(f"Either update the checksum in this script or delete '{filepath}' and try again!")
-        sys.exit(1)
+        raise ChecksumMismatchError(filepath, expected_checksum, actual_checksum)

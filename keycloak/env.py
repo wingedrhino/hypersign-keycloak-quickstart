@@ -1,6 +1,13 @@
 import os
-import sys
 from typing import List
+
+
+class EnvarEmptyError(Exception):
+    def __init__(self, var_name: str):
+        self.var_name = var_name
+
+    def __str__(self) -> str:
+        return f'EnVar {self.var_name} is empty'
 
 
 # check_env accepts a list of strings to check that need to be defined as
@@ -11,7 +18,7 @@ def check_env(envars: List[str]) -> bool:
         print(f'{envar} = {value}')
         if not value:
             print(f'Exiting because {envar} is empty')
-            sys.exit(1)
+            raise EnvarEmptyError(envar)
             return False
     print('...Mandatory Environment Variable Check Completed!')
     return True

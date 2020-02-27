@@ -25,6 +25,7 @@ ENV KCBASE='/opt/jboss/keycloak'
 ENV KC_EXECUTION_STRATEGY='docker'
 ENV PATH="${KCBASE}/bin:${PATH}"
 ENV KC_BASEURL='http://localhost:8080'
+ENV KEYCLOAK_MODE='standalone-ha'
 
 COPY . .
 

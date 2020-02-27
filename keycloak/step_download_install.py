@@ -2,17 +2,14 @@
 
 # Stdlib Imports
 import os
-import shutil
 import sys
+import shutil
 from pathlib import Path
 import tarfile
-
-# Third Party Imports
-from bs4 import BeautifulSoup  # Ensure LXML is installed
+from typing import List, Type
 
 # Local Imports
 from downloader import dld_with_checks
-import strutil
 from keycloak import KeycloakHandle, singleton
 
 # Environment Variables
@@ -28,137 +25,93 @@ HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR', '')
 MODULE_NAME = 'hs-plugin-keycloak-ejb'
 EXTRACT_DIR_NAME = 'hs-authenticator'
 
-# Derive Paths for use by other methods
-workdir = Path(HYPERSIGN_WORKDIR)
-if not workdir.exists():
-    print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
-    sys.exit(1)
-extract_dir = workdir.joinpath(EXTRACT_DIR_NAME)
-downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
-dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
-kcbase = Path(KCBASE)
-copy_jar_path = kcbase.joinpath(HS_PLUGIN_JAR)
-module_basedir = kcbase.joinpath('modules').joinpath(MODULE_NAME)
 
-
-def download_files() -> None:
-    dld_with_checks(AUTHENTICATOR_BUILD_URL, downloaded_tarball, AUTHENTICATOR_CHECKSUM)
-
-
-def extract_files() -> None:
+def extract_files(workdir: Path, extract_dir: Path, tarball_path: Path) -> None:
     if extract_dir.exists():
         print(f"Deleting directory '{extract_dir}' because it already exists")
         shutil.rmtree(extract_dir)
-    tarfile.open(downloaded_tarball).extractall(workdir)
+    tarfile.open(tarball_path).extractall(workdir)
     tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
 
 
-def install_theme() -> None:
-    theme_extract_dir = extract_dir.joinpath('hs-themes')
-    theme_install_dir = kcbase.joinpath('themes').joinpath('base').joinpath('login')
-    print(f'Copying hypersign theme from {theme_extract_dir} to {theme_install_dir}...')
-    for theme_file_name in ['hypersign-config.ftl', 'hypersign.ftl', 'hypersign-new.ftl']:
-        extracted_file_handle = theme_extract_dir.joinpath(theme_file_name)
-        installed_file_handle = theme_install_dir.joinpath(theme_file_name)
-        if installed_file_handle.exists():
-            print(f"File '{installed_file_handle}' already exists. It'll be replaced!")
-            installed_file_handle.unlink()
-        shutil.copy2(extracted_file_handle, theme_install_dir)
-        print(f"Theme file '{theme_install_dir}' installed!")
+def install_theme(kc: KeycloakHandle, extract_dir: Path) -> None:
+    themes_dir = extract_dir.joinpath('hs-themes')
+    files = ['hypersign-config.ftl', 'hypersign.ftl', 'hypersign-new.ftl']
+    file_paths = Type[List[Path]]
+    for file_name in files:
+        file_path = themes_dir.joinpath(file_name)
+        file_paths.append(file_path)
+    kc.add_login_theme_files(file_paths)
 
 
 # deploy_config generates a hypersign.properties file that has the
 # auth-server-endpoint value correctly set, as per environment variable
-def deploy_config() -> None:
-    # Deploy HyperSign config file
-    print('Deploying configuration file...')
-    cfg_file = kcbase.joinpath('standalone').joinpath('configuration').joinpath('hypersign.properties')
-    if cfg_file.exists():
-        print(f'Found old copy of {cfg_file}. Deleting it!')
-        cfg_file.unlink()
-    cfg_text = f'# hs auth server url\nauth-server-endpoint={HS_AUTH_SERVER_ENDPOINT}\n'
-    strutil.write_to_file(cfg_file, cfg_text)
+def deploy_config(kc: KeycloakHandle, auth_server_endpoint: str) -> None:
+    file_name = 'hypersign.properties'
+    file_text = (
+        '# Hypersign Auth Server (hs-auth-server node app) URL\n'
+        f'auth-server-endpoint={auth_server_endpoint}\n'
+    )
+    kc.add_config_file_content(file_name, file_text)
 
 
-# Clear module deletes the installed module.
-def clear_module() -> None:
-    if module_basedir.exists():
-        print(f'Module already exists at {module_basedir}. It will be deleted.')
-        shutil.rmtree(module_basedir)
-    if copy_jar_path.exists():
-        print(f'File {copy_jar_path} exists. It will be deleted.')
-        copy_jar_path.unlink()
+def deploy_module(kc: KeycloakHandle, module_name: str, jar_path: Path) -> None:
+
+    kc.delete_module(module_name)
+    dependencies = [
+        'org.keycloak.keycloak-common',
+        'org.keycloak.keycloak-core',
+        'org.keycloak.keycloak-services',
+        'org.keycloak.keycloak-model-jpa',
+        'org.keycloak.keycloak-server-spi',
+        'org.keycloak.keycloak-server-spi-private',
+        'javax.ws.rs.api',
+        'javax.persistence.api',
+        'org.hibernate',
+        'org.javassist',
+        'org.liquibase',
+        'com.fasterxml.jackson.core.jackson-core',
+        'com.fasterxml.jackson.core.jackson-databind',
+        'com.fasterxml.jackson.core.jackson-annotations',
+        'org.jboss.resteasy.resteasy-jaxrs',
+        'org.jboss.logging',
+        'org.apache.httpcomponents',
+        'org.apache.commons.codec',
+        'org.keycloak.keycloak-wildfly-adduser',
+    ]
+
+    kc.add_module(module_name, jar_path, dependencies)
 
 
-# Deploy a module using jboss CLI's add command
-# https://www.keycloak.org/docs/latest/server_development/index.html#register-a-provider-using-modules
-def deploy_module_cli(kc: KeycloakHandle = singleton) -> None:
-    # Copy JAR
-    print(f'Copying {dld_jar_path} file into {kcbase}...')
-    shutil.copy2(dld_jar_path, kcbase)
-
-    # Execute Add Module Command
-    jboss_cli_commands = f'module add --name={MODULE_NAME} --resources={kcbase.joinpath(HS_PLUGIN_JAR)} --dependencies=org.keycloak.keycloak-common,org.keycloak.keycloak-core,org.keycloak.keycloak-services,org.keycloak.keycloak-model-jpa,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,javax.ws.rs.api,javax.persistence.api,org.hibernate,org.javassist,org.liquibase,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.core.jackson-annotations,org.jboss.resteasy.resteasy-jaxrs,org.jboss.logging,org.apache.httpcomponents,org.apache.commons.codec,org.keycloak.keycloak-wildfly-adduser'
-    jboss_cli_name = 'plugin_deploy'
-    kc.jboss_cli_raise_error(jboss_cli_name, jboss_cli_commands)
-
-
-def deploy_module(kc: KeycloakHandle = singleton) -> None:
-    clear_module()
-    deploy_module_cli()
-
-
-# Register HyperSign as a KeyCloak provider using Modules
-# https://www.keycloak.org/docs/latest/server_development/#register-a-provider-using-modules
-def register_module() -> None:
-    cfg_path = kcbase.joinpath('standalone') \
-        .joinpath('configuration') \
-        .joinpath('standalone-ha.xml')
-
-    provider_key = f'module:{MODULE_NAME}'
-    print(f'Inspecting {cfg_path} to see if {provider_key} is registered')
-
-    # Read XML file and parse in Soup
-    cfg_text = strutil.read_from_file(cfg_path)
-    cfg_soup = BeautifulSoup(cfg_text, 'xml')
-
-    # Find a subsystem element such that it's
-    # xmlns attribute is urn:jboss:domain:keycloak-server:1.1
-    # Then find the providers element inside that file.
-    providers_node = cfg_soup.find(
-        'subsystem',
-        attrs={'xmlns': 'urn:jboss:domain:keycloak-server:1.1'}
-    ).find('providers')
-
-    # Now search through text of each provider element
-    is_registered = False
-    for provider_node in providers_node.findAll('provider'):
-        provider_key = provider_node.text.strip()
-        if provider_key == provider_key:
-            is_registered = True
-            print(f'Found HyperSign Provider {provider_key}! Config update isn\'t needed.')
-        else:
-            print(f'Found provider {provider_key}')
-
-    # Update configuration in-place
-    if not is_registered:
-        print('Editing Configuration...')
-        new_provider_node = cfg_soup.new_tag('provider')
-        new_provider_node.string = provider_key
-        providers_node.append(new_provider_node)
-        strutil.write_to_file(cfg_path, str(cfg_soup))
+def register_module(kc: KeycloakHandle, module_name: str) -> None:
+    is_registered = kc.is_module_registered(module_name)
+    if is_registered:
+        print(f'Module {module_name} is already registered!')
+        return
+    kc.register_module(module_name)
+    print(f'Module {module_name} registered in keycloak!')
 
 
 # Download HyperSign Keycloak Authenticator, Extract it and Install it!
 def step_download_extract_install(kc: KeycloakHandle = singleton) -> None:
-    download_files()
-    extract_files()
-    install_theme()
-    deploy_config()
-    deploy_module(kc)
-    register_module()
+    workdir = Path(HYPERSIGN_WORKDIR)
+    if not workdir.exists():
+        print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
+        sys.exit(1)
+    extract_dir = workdir.joinpath(EXTRACT_DIR_NAME)
+    downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
+    dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
+    kcbase = Path(KCBASE)\
+
+    dld_with_checks(AUTHENTICATOR_TGZ_FILE, dld_jar_path, AUTHENTICATOR_CHECKSUM)
+    extract_files(workdir, extract_dir, downloaded_tarball)
+    install_theme(kc, extract_dir)
+    deploy_config(kc, HS_AUTH_SERVER_ENDPOINT)
+    deploy_module(kc, MODULE_NAME, dld_jar_path)
+    register_module(kc, MODULE_NAME)
 
 
 # Main()
 if __name__ == '__main__':
+
     step_download_extract_install()
