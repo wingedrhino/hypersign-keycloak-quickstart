@@ -4,7 +4,7 @@ USER root
 
 WORKDIR /hypersign
 
-# Install Python for gruntwork and beautifulsoup4 for XML editing
+# Install Python for grunt work and beautifulsoup4 for XML editing
 # Install the ps command via procps to check for accidentally zombied processes
 # Install Vim (and my .vimrc) to make life easy in the container
 RUN microdnf install python3 vim procps
