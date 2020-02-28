@@ -134,7 +134,7 @@ class KeycloakHandle:
             custom_start_cmd: List[str] = [],
     ) -> None:
 
-        self._handle = Type[Popen[Any]]
+        self._handle = None
         self._running = False
         self._kc_user = kc_user
         self._kc_pass = kc_pass
@@ -233,8 +233,8 @@ class KeycloakHandle:
             return
         print('Starting KeyCloak...')
         self._handle = Popen(self._start_cmd, preexec_fn=pre_exec_fn)
-        time.sleep(60)
-        # self.wait_ready()
+        # time.sleep(60)
+        self.wait_ready()
         self._running = True
         print('...Started KeyCloak!')
 
@@ -276,7 +276,7 @@ class KeycloakHandle:
         exitcode, output = self.jboss_cli('is-kc-up', 'connect\n:read-attribute(name=server-state)')
         is_json, res = to_json_if_json(output)
         print(f'Keycloak is_ready check. exitcode: {exitcode}. output:\n{output}\n')
-        if exitcode != 0 or not is_json or res.get('outcome') != 'success' or res.get('result') != '_running':
+        if exitcode != 0 or not is_json or res.get('outcome') != 'success' or res.get('result') != 'running':
             return False
         return True
 
@@ -288,18 +288,16 @@ class KeycloakHandle:
 
         is_ready = False
         for i in range(STARTUP_WAIT_MAX_RETRIES):
-            print(f'Checking if keycloak has started. Iteration #{i}')
+            # print(f'Checking if keycloak has started. Iteration #{i}')
             is_ready = self.is_ready()
             if is_ready:
                 break
             else:
-                print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
+                # print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
                 time.sleep(STARTUP_WAIT_SLEEP_TIME)
                 total_wait += STARTUP_WAIT_SLEEP_TIME
 
         if not is_ready:
-            print(
-                f'Max wait time of {STARTUP_WAIT_SLEEP_TIME * STARTUP_WAIT_MAX_RETRIES} seconds exceeded! Throwing exception.')
             raise KeycloakWaitTimeExceededError
         else:
             print(f'Keycloak startup wait took {total_wait} seconds!')
@@ -312,6 +310,7 @@ class KeycloakHandle:
         print('Stopping KeyCloak...')
         self._handle.terminate()
         self._handle.wait()
+        self._handle = None
         print('...Stopped KeyCloak!')
         self._running = False
         return True
@@ -323,18 +322,18 @@ class KeycloakHandle:
         self.start()
         print('...Restarted KeyCloak!')
 
-    # Returns if this KeycloakHandle points to a currently _running inmstance
+    # Returns if this KeycloakHandle points to a currently running inmstance
     def is_running(self) -> bool:
         return self._running
 
-    # Attempts to login to currently _running keycloak instance
+    # Attempts to login to currently running keycloak instance
     def login(self) -> None:
         print('Logging into KeyCloak...')
         cli_args = f'config credentials --server http://localhost:8080/auth --realm master --user {self._kc_user} --password {self._kc_pass}'
         self.kcadm_cli_raise_error(cli_args)
         print('...Successfully logged into KeyCloak!')
 
-    # Force kills a keycloak instance that's _running anywhere on localhost
+    # Force kills a keycloak instance that's running anywhere on localhost
     def kill(self) -> None:
         print('Attempting to kill Keycloak...')
         _, msg = self.jboss_cli('shutdown', 'connect\nshutdown')
@@ -343,7 +342,7 @@ class KeycloakHandle:
 
     def __del__(self) -> None:
         if self._running:
-            print(f'Keycloak Destructor: Premature destruction of _running keycloak handle! Calling stop.')
+            print(f'Keycloak Destructor: Premature destruction of running keycloak handle! Calling stop.')
             self.stop()
             print(f'Keycloak Destructor: Keycloak has (hopefully) been shutdown gracefully. Bye now!')
 
