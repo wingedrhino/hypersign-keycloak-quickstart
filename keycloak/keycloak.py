@@ -182,18 +182,15 @@ class KeycloakHandle:
     def get_cfg_path(self) -> Path:
         return self._kcbase.joinpath('standalone').joinpath('configuration').joinpath(f'{self._kc_mode}.xml')
 
-    def read_cfg(self) -> ET:
+    def get_providers(self) -> List[str]:
         cfg_path = self.get_cfg_path()
-        cfg_xml = ET.parse(cfg_path)
-        return cfg_xml
-
-    def get_providers(self) -> Any:  # List[str]: is what we'd like if soup had type annotations
-        cfg = self.read_cfg()
+        cfg = ET.parse(str(cfg_path))
         xpath_str = './/{urn:jboss:domain:keycloak-server:1.1}subsystem/{urn:jboss:domain:keycloak-server:1.1}providers'
         providers_node = cfg.find(xpath_str)
         providers: List[str] = []
+        child: ET.Element
         for child in providers_node:
-            provider_key = child.text.strip()
+            provider_key = str(child.text).strip()
             providers.append(provider_key)
         return providers
 
