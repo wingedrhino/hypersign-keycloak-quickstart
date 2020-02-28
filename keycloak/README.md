@@ -12,16 +12,13 @@ Local install refers to when you'd like to deploy the Hypersign Keycloak plugin
 on an instance of Keycloak that's installed locally on your machine, obtained
 from the [official downloads page](https://www.keycloak.org/downloads.html).
 
-This needs Python >= 3.6 to be installed on your system. To run it, please make
-sure you have `beautifulsoup` and `lxml` installed! They can be installed via
-either `pip` or via your system package manager (`apt`, `dnf`) or via `conda`
-if you're on the [Anaconda Python Distribution](https://www.anaconda.com/).
+This needs Python >= 3.6 to be installed on your system.
 
 My assumption is that you are either on Linux with system Python or on any
 other platform with Anaconda Python. If it's `System Python`, I assume you are
 on RHEL 8, CentOS 8, Ubuntu 18.04 or Debian 10 if it's a server deployment; all
 of these support Python 3.6. Newer Linux distros should have Python 3.7 or
-newer. Anaconda Python is currently at 3.7 and it is available on Linux,
+3.8. Anaconda Python is currently at 3.7 and it is available on Linux,
 Windows 10 and macOS 10.15.
 
 I'm uninterested in supporting any other platform!
@@ -64,6 +61,9 @@ platforms are nowhere close to Linux, you'll atleast get a semblance of a
 generally familiar environment!
 
 After you install Anaconda, run `conda install mypy`.
+
+If you are on Linux, you can instead do `pip3 install mypy` from your system
+Python, which is hopefully v3.6 or newer!
 
 ### Windows 10: Local Install
 

@@ -2,44 +2,71 @@
 
 # Stdlib Imports
 import os
-import sys
 import shutil
 from pathlib import Path
 import tarfile
 from typing import List, Type
 
 # Local Imports
-from downloader import dld_with_checks
+from downloader import dld_with_checks_get_path
 from keycloak import KeycloakHandle, singleton
 
 # Environment Variables
 AUTHENTICATOR_BUILD_URL = os.getenv('AUTHENTICATOR_BUILD_URL', '')
-AUTHENTICATOR_TGZ_FILE = os.getenv('AUTHENTICATOR_TGZ_FILE', '')
-HS_PLUGIN_JAR = os.getenv('HS_PLUGIN_JAR', '')
 AUTHENTICATOR_CHECKSUM = os.getenv('AUTHENTICATOR_CHECKSUM', '')
 HS_AUTH_SERVER_ENDPOINT = os.getenv('HS_AUTH_SERVER_ENDPOINT', '')
-KCBASE = os.getenv('KCBASE', '')
-HYPERSIGN_WORKDIR = os.getenv('HYPERSIGN_WORKDIR', '')
 
 # Constants
 MODULE_NAME = 'hs-plugin-keycloak-ejb'
-EXTRACT_DIR_NAME = 'hs-authenticator'
+THEME_TARBALL_NAME = 'hs-theme.tar.gz'
 
 
-def extract_files(workdir: Path, extract_dir: Path, tarball_path: Path) -> None:
+def get_files_in_tarfile(tarball_path: Path) -> List[str]:
+    with tarfile.open(tarball_path, mode='r') as archive:
+        files = archive.getnames()
+    return files
+
+
+def get_extract_dir(tarball_path: Path) -> Path:
+    files = get_files_in_tarfile(tarball_path)
+    common_prefix = os.path.commonpath(files)
+    return Path(common_prefix)
+
+
+def get_jar_path(tarball_path: Path) -> Path:
+
+    files = get_files_in_tarfile(tarball_path)
+
+    def ends_with(s: str) -> bool:
+        return s.endswith('.jar')
+
+    jar_relative_path = list(filter(ends_with, files))[0]
+    cwd = Path(os.getcwd())
+    jar_path = cwd.joinpath(jar_relative_path)
+
+    return jar_path
+
+
+def extract_files(tarball_path: Path) -> None:
+    extract_dir = get_extract_dir(tarball_path)
     if extract_dir.exists():
         print(f"Deleting directory '{extract_dir}' because it already exists")
         shutil.rmtree(extract_dir)
-    tarfile.open(tarball_path).extractall(workdir)
-    tarfile.open(extract_dir.joinpath('hs-theme.tar.gz')).extractall(extract_dir)
+    with tarfile.open(tarball_path) as archive:
+        archive.extractall()
 
 
-def install_theme(kc: KeycloakHandle, extract_dir: Path) -> None:
-    themes_dir = extract_dir.joinpath('hs-themes')
-    files = ['hypersign-config.ftl', 'hypersign.ftl', 'hypersign-new.ftl']
-    file_paths = Type[List[Path]]
-    for file_name in files:
-        file_path = themes_dir.joinpath(file_name)
+def install_theme(kc: KeycloakHandle, tarball_path: Path) -> None:
+    extract_dir = get_extract_dir(tarball_path)
+    themes_tarball = extract_dir.joinpath(THEME_TARBALL_NAME)
+    with tarfile.open(themes_tarball) as archive:
+        archive.extractall()
+    themes_dir = get_extract_dir(themes_tarball)
+    file_paths: List[Path] = []
+    dir_entry: os.DirEntry
+    print(f'Themes have been extracted to {themes_dir}')
+    for dir_entry in os.scandir(themes_dir):  # find all files
+        file_path = Path(dir_entry.path)
         file_paths.append(file_path)
     kc.add_login_theme_files(file_paths)
 
@@ -55,8 +82,7 @@ def deploy_config(kc: KeycloakHandle, auth_server_endpoint: str) -> None:
     kc.add_config_file_content(file_name, file_text)
 
 
-def deploy_module(kc: KeycloakHandle, module_name: str, jar_path: Path) -> None:
-
+def deploy_module(kc: KeycloakHandle, module_name: str, tarball_path: Path) -> None:
     kc.delete_module(module_name)
     dependencies = [
         'org.keycloak.keycloak-common',
@@ -79,7 +105,7 @@ def deploy_module(kc: KeycloakHandle, module_name: str, jar_path: Path) -> None:
         'org.apache.commons.codec',
         'org.keycloak.keycloak-wildfly-adduser',
     ]
-
+    jar_path = get_jar_path(tarball_path)
     kc.add_module(module_name, jar_path, dependencies)
 
 
@@ -94,24 +120,26 @@ def register_module(kc: KeycloakHandle, module_name: str) -> None:
 
 # Download HyperSign Keycloak Authenticator, Extract it and Install it!
 def step_download_extract_install(kc: KeycloakHandle = singleton) -> None:
-    workdir = Path(HYPERSIGN_WORKDIR)
-    if not workdir.exists():
-        print(f'Exiting because HYPERSIGN_WORKDIR was set to {workdir}, a path that doesn\'t exist.')
-        sys.exit(1)
-    extract_dir = workdir.joinpath(EXTRACT_DIR_NAME)
-    downloaded_tarball = workdir.joinpath(AUTHENTICATOR_TGZ_FILE)
-    dld_jar_path = extract_dir.joinpath(HS_PLUGIN_JAR)
-    kcbase = Path(KCBASE)\
-
-    dld_with_checks(AUTHENTICATOR_TGZ_FILE, dld_jar_path, AUTHENTICATOR_CHECKSUM)
-    extract_files(workdir, extract_dir, downloaded_tarball)
-    install_theme(kc, extract_dir)
+    print(f'Downloading plugin from {AUTHENTICATOR_BUILD_URL}')
+    hs_tarball = dld_with_checks_get_path(AUTHENTICATOR_BUILD_URL, AUTHENTICATOR_CHECKSUM)
+    print(f'Plugin tarball downloaded to {hs_tarball}')
+    print('Extracting files...')
+    extract_files(hs_tarball)
+    print('Installing theme...')
+    install_theme(kc, hs_tarball)
+    print(f'Deploying configuration. hs-auth-server is at {HS_AUTH_SERVER_ENDPOINT}')
     deploy_config(kc, HS_AUTH_SERVER_ENDPOINT)
-    deploy_module(kc, MODULE_NAME, dld_jar_path)
-    register_module(kc, MODULE_NAME)
+    print(f'Deploying module {MODULE_NAME}')
+    deploy_module(kc, MODULE_NAME, hs_tarball)
+    kc.start()
+    if not kc.is_module_registered(MODULE_NAME):
+        print(f'Registering module {MODULE_NAME}')
+        register_module(kc, MODULE_NAME)
+        kc.restart()
+    else:
+        print(f'Not registering module {MODULE_NAME} since it is already registered!')
 
 
 # Main()
 if __name__ == '__main__':
-
     step_download_extract_install()

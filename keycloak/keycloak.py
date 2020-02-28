@@ -5,12 +5,11 @@ import os
 import shutil
 import time
 import json
+import xml.etree.ElementTree as ET
 from subprocess import Popen, getstatusoutput, run as sub_run
 from pathlib import Path
 from typing import List, Tuple, Any, Type, Union
 
-# Third Party Imports
-from bs4 import BeautifulSoup  # Ensure LXML is installed
 
 # Environment Variable Arguments
 KEYCLOAK_USER = os.getenv('KEYCLOAK_USER', '')
@@ -134,7 +133,7 @@ class KeycloakHandle:
             custom_start_cmd: List[str] = [],
     ) -> None:
 
-        self._handle = None
+        self._handle = Type[Popen]
         self._running = False
         self._kc_user = kc_user
         self._kc_pass = kc_pass
@@ -183,22 +182,18 @@ class KeycloakHandle:
     def get_cfg_path(self) -> Path:
         return self._kcbase.joinpath('standalone').joinpath('configuration').joinpath(f'{self._kc_mode}.xml')
 
-    def read_cfg(self) -> Any:
+    def read_cfg(self) -> ET:
         cfg_path = self.get_cfg_path()
-        cfg_txt = read_from_file(cfg_path)
-        cfg_xml = BeautifulSoup(cfg_txt, 'xml')
+        cfg_xml = ET.parse(cfg_path)
         return cfg_xml
-
-    def write_cfg(self, cfg: Any) -> None:
-        cfg_path = self.get_cfg_path()
-        write_to_file(cfg_path, str(cfg))
 
     def get_providers(self) -> Any:  # List[str]: is what we'd like if soup had type annotations
         cfg = self.read_cfg()
-        providers_node = cfg.find('subsystem', attrs={'xmlns': 'urn:jboss:domain:keycloak-server:1.1'}).find('providers')
-        providers = Type[List[str]]  # initialize empty array
-        for provider_node in providers_node.findAll('provider'):
-            provider_key = provider_node.text.strip()
+        xpath_str = './/{urn:jboss:domain:keycloak-server:1.1}subsystem/{urn:jboss:domain:keycloak-server:1.1}providers'
+        providers_node = cfg.find(xpath_str)
+        providers: List[str] = []
+        for child in providers_node:
+            provider_key = child.text.strip()
             providers.append(provider_key)
         return providers
 
@@ -206,15 +201,20 @@ class KeycloakHandle:
         return f'module:{module_name}' in self.get_providers()
 
     # https://www.keycloak.org/docs/latest/server_development/#register-a-provider-using-modules
+    # We are automating the above step by using jboss_cli's write-attribute feature
+    # This needs the server to be running. It'll fail otherwise!
     def register_module(self, module_name: str) -> None:
         if self.is_module_registered(module_name):
             return
-        cfg = self.read_cfg()
-        providers_node = cfg.find('subsystem', attrs={'xmlns': 'urn:jboss:domain:keycloak-server:1.1'}).find('providers')
-        new_provider_node = cfg.new_tag('provider')
-        new_provider_node.string = f'module:{module_name}'
-        providers_node.append(new_provider_node)
-        self.write_cfg(cfg)
+        providers = self.get_providers()
+        providers.append(f'module:{module_name}')
+        cli_name = f'add-module-{module_name}'
+        cli_cmd = (
+            'connect\n'
+            f'/subsystem=keycloak-server/:write-attribute(name=providers,value={json.dumps(providers)})'
+        )
+        self.jboss_cli(cli_name, cli_cmd)
+        pass
 
     # when provided a file name and text, it creates a config file with this and copies
     # it over to the appropriate location
@@ -262,7 +262,7 @@ class KeycloakHandle:
         cli_name = f'{cmd_name}.hskc.jboss.cli'
         cli_location = self._kcbase.joinpath(cli_name)
         write_to_file(cli_location, commands)
-        cmd = f'{self._jboss_cli} --echo-command --output-json --file="{cli_location}"'
+        cmd = f'{self._jboss_cli} --output-json --file="{cli_location}"'
         exitcode, output = getstatusoutput(cmd)
         return exitcode, output
 
@@ -288,12 +288,12 @@ class KeycloakHandle:
 
         is_ready = False
         for i in range(STARTUP_WAIT_MAX_RETRIES):
-            # print(f'Checking if keycloak has started. Iteration #{i}')
+            print(f'Checking if keycloak has started. Iteration #{i}')
             is_ready = self.is_ready()
             if is_ready:
                 break
             else:
-                # print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
+                print(f'Going to sleep now for {STARTUP_WAIT_SLEEP_TIME} seconds')
                 time.sleep(STARTUP_WAIT_SLEEP_TIME)
                 total_wait += STARTUP_WAIT_SLEEP_TIME
 
@@ -310,7 +310,6 @@ class KeycloakHandle:
         print('Stopping KeyCloak...')
         self._handle.terminate()
         self._handle.wait()
-        self._handle = None
         print('...Stopped KeyCloak!')
         self._running = False
         return True
