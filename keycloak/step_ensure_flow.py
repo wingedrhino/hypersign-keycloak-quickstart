@@ -17,7 +17,7 @@ def step_ensure_hs_flow(kc: KeycloakHandle = singleton) -> None:
 
     print('Checking if HyperSign flow is present...')
     is_hs_flow_present = False
-    flow_names = kc.get_authentication_flow_names('master')
+    flow_names = kc.list_authentication_flow_names('master')
     if AUTH_FLOW_NAME in flow_names:
         is_hs_flow_present = True
 

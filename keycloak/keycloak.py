@@ -234,7 +234,7 @@ class KeycloakHandle:
     #     "userSetupAllowed" : false,
     #     "autheticatorFlow" : false
     #   }, {
-    #     "authenticator" : "identity-provider-redirector",
+    #     "authenticator" : "identity-provider_id-redirector",
     #     "requirement" : "ALTERNATIVE",
     #     "priority" : 25,
     #     "userSetupAllowed" : false,
@@ -275,13 +275,13 @@ class KeycloakHandle:
     # } ]
     # TODO create a class to serialize the authentication flows output into
     # so that auto-complete works properly
-    def get_authentication_flows(self, realm: str) -> Any:
+    def list_authentication_flows(self, realm: str) -> Any:
         args = f'get authentication/flows --format json --noquotes -r {realm}'
         flows = self.kcadm_cli_as_json_raise_error(args)
         return flows
 
-    def get_authentication_flow_names(self, realm: str) -> List[str]:
-        flows = self.get_authentication_flows(realm)
+    def list_authentication_flow_names(self, realm: str) -> List[str]:
+        flows = self.list_authentication_flows(realm)
         return list(map(lambda flow: str(flow.get('alias')), flows))
 
     def create_authentication_flow(
@@ -303,6 +303,39 @@ class KeycloakHandle:
             f' -r {realm}'
         )
         self.kcadm_cli_raise_error(args)
+
+    # Example output:
+    #
+    # [ {
+    #   "id" : "3f2a3b49-bcf3-4476-a403-4906977de2ac",
+    #   "requirement" : "DISABLED",
+    #   "displayName" : "HyperSign QRCode",
+    #   "requirementChoices" : [ "REQUIRED", "DISABLED", "ALTERNATIVE" ],
+    #   "configurable" : true,
+    #   "providerId" : "hyerpsign-qrocde-authenticator",
+    #   "level" : 0,
+    #   "index" : 0
+    # } ]
+    #
+    def list_executions(self, realm: str, auth_flow_name: str) -> Any:
+        args = f'get authentication/flows/{auth_flow_name}/executions --format json -r {realm}'
+        return self.kcadm_cli_as_json_raise_error(args)
+
+    def list_execution_names(self, realm: str, auth_flow_name: str) -> List[str]:
+        executions = self.list_executions(realm, auth_flow_name)
+        return list(map(lambda execution: str(execution.get('displayName')), executions))
+
+    def create_execution(self, realm: str, auth_flow_name: str, provider_id: str, requirement: str) -> None:
+        args = (
+            f'create authentication/flows/{auth_flow_name}/executions/execution'
+            f' -r {realm}'
+            f' -s provider="{provider_id}"'
+            f' -s requirement={requirement}'
+        )
+        self.kcadm_cli_raise_error(args)
+
+    def create_required_execution(self, realm: str, auth_flow_name: str, provider: str) -> None:
+        self.create_execution(realm, auth_flow_name, provider, 'REQUIRED')
 
     # when provided a file name and text, it creates a config file with this and copies
     # it over to the appropriate location
