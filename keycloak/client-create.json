@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "attributes": {},
+  "redirectUris": [],
+  "clientId": "CLIENT_ALIAS",
+  "rootUrl": "",
+  "protocol": "openid-connect"
+}

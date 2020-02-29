@@ -1,0 +1,14 @@
+{
+  "id": "EXECUTION_ID",
+  "requirement": "REQUIRED",
+  "displayName": "HyperSign QRCode",
+  "requirementChoices": [
+    "REQUIRED",
+    "DISABLED",
+    "ALTERNATIVE"
+  ],
+  "configurable": true,
+  "providerId": "hyerpsign-qrocde-authenticator",
+  "level": 0,
+  "index": 0
+}
