@@ -213,6 +213,97 @@ class KeycloakHandle:
         self.jboss_cli(cli_name, cli_cmd)
         pass
 
+    # Example output:
+    # [ {
+    #   "id" : "f53c539b-fdcd-46bf-b529-0b62f38d7f83",
+    #   "alias" : "browser",
+    #   "description" : "browser based authentication",
+    #   "providerId" : "basic-flow",
+    #   "topLevel" : true,
+    #   "builtIn" : true,
+    #   "authenticationExecutions" : [ {
+    #     "authenticator" : "auth-cookie",
+    #     "requirement" : "ALTERNATIVE",
+    #     "priority" : 10,
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : false
+    #   }, {
+    #     "authenticator" : "auth-spnego",
+    #     "requirement" : "DISABLED",
+    #     "priority" : 20,
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : false
+    #   }, {
+    #     "authenticator" : "identity-provider-redirector",
+    #     "requirement" : "ALTERNATIVE",
+    #     "priority" : 25,
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : false
+    #   }, {
+    #     "requirement" : "ALTERNATIVE",
+    #     "priority" : 30,
+    #     "flowAlias" : "forms",
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : true
+    #   } ]
+    # }, {
+    #   "id" : "d7e31e5a-9cac-4403-aeb1-c82ba4b51a1f",
+    #   "alias" : "direct grant",
+    #   "description" : "OpenID Connect Resource Owner Grant",
+    #   "providerId" : "basic-flow",
+    #   "topLevel" : true,
+    #   "builtIn" : true,
+    #   "authenticationExecutions" : [ {
+    #     "authenticator" : "direct-grant-validate-username",
+    #     "requirement" : "REQUIRED",
+    #     "priority" : 10,
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : false
+    #   }, {
+    #     "authenticator" : "direct-grant-validate-password",
+    #     "requirement" : "REQUIRED",
+    #     "priority" : 20,
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : false
+    #   }, {
+    #     "requirement" : "CONDITIONAL",
+    #     "priority" : 30,
+    #     "flowAlias" : "Direct Grant - Conditional OTP",
+    #     "userSetupAllowed" : false,
+    #     "autheticatorFlow" : true
+    #   } ]
+    # } ]
+    # TODO create a class to serialize the authentication flows output into
+    # so that auto-complete works properly
+    def get_authentication_flows(self, realm: str) -> Any:
+        args = f'get authentication/flows --format json --noquotes -r {realm}'
+        flows = self.kcadm_cli_as_json_raise_error(args)
+        return flows
+
+    def get_authentication_flow_names(self, realm: str) -> List[str]:
+        flows = self.get_authentication_flows(realm)
+        return list(map(lambda flow: str(flow.get('alias')), flows))
+
+    def create_authentication_flow(
+            self,
+            realm: str,
+            alias: str,
+            provider_id: str,
+            description: str,
+            top_level: bool,
+            built_in: bool,
+    ) -> None:
+        args = (
+            'create authentication/flows'
+            f' -s alias="{alias}"'
+            f' -s providerId="{provider_id}"'
+            f' -s description="{description}"'
+            f' -s topLevel={str(top_level).lower()}'
+            f' -s builtIn={str(built_in).lower()}'
+            f' -r {realm}'
+        )
+        self.kcadm_cli_raise_error(args)
+
     # when provided a file name and text, it creates a config file with this and copies
     # it over to the appropriate location
     def add_config_file_content(self, file_name: str, file_text: str) -> None:

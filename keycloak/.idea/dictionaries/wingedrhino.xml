@@ -3,6 +3,7 @@
     <words>
       <w>addr</w>
       <w>adduser</w>
+      <w>autheticator</w>
       <w>baseurl</w>
       <w>beautifulsoup</w>
       <w>cli</w>
@@ -28,6 +29,7 @@
       <w>lxml</w>
       <w>microdnf</w>
       <w>mypy</w>
+      <w>noquotes</w>
       <w>procps</w>
       <w>resteasy</w>
       <w>rhel</w>
